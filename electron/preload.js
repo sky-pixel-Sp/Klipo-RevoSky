@@ -1,7 +1,6 @@
 "use strict";
 
 const { contextBridge, ipcRenderer } = require("electron");
-const { pathToFileURL } = require("node:url");
 
 const subscriptions = new Map();
 
@@ -27,7 +26,6 @@ contextBridge.exposeInMainWorld("klipo", Object.freeze({
   transcribeMedia: (filePath) => ipcRenderer.invoke("ai:transcribe", filePath),
   findHighlights: (filePath) => ipcRenderer.invoke("ai:highlights", filePath),
   openPath: (targetPath) => ipcRenderer.invoke("app:open-path", targetPath),
-  mediaUrl: (filePath) => pathToFileURL(filePath).href,
   onJobUpdate: (callback) => subscribe("job:update", callback),
   onJobLog: (callback) => subscribe("job:log", callback)
 }));
