@@ -241,6 +241,7 @@ async function findHighlights(filePath) {
   }
 
   const metadata = await probeMedia(resolvedPath);
+  if (!metadata.width || !metadata.height) throw new Error("Select a video file, not an audio-only file, for highlight analysis.");
   if (!metadata.hasAudio) throw new Error("The selected video has no audio track to analyze.");
   const transcription = await transcribeMedia(resolvedPath, "verbose_json");
   const sourceSegments = Array.isArray(transcription.segments) ? transcription.segments : [];
