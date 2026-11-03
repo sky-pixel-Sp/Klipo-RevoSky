@@ -70,11 +70,17 @@ test("does not waste fallback attempts when the daily free quota is exhausted", 
   assert.equal(calls, 1);
 });
 
-test("rejects empty model catalogs with a useful setup error", async () => {
-  await assert.rejects(() => listProviderModels({
+test("returns an empty catalogue when a provider has no available models", async () => {
+  const models = await listProviderModels({
     baseUrl: "https://example.test/v1",
     apiKey: "test-key",
     fetchImpl: async () => response(200, { data: [] })
-  }), async () => true).catch(() => {});
-  assert.throws(() => providerError(403, { error: { code: "permission_error" } }).retryable === false ? null : new Error("expected"));
+  });
+  assert.deepEqual(models, []);
+});
+
+test("classifies forbidden provider access as an authentication or permission problem", () => {
+  const issue = providerError(403, { error: { code: "permission_error", message: "Not allowed" } });
+  assert.equal(issue.kind, "authentication");
+  assert.equal(issue.retryable, false);
 });
