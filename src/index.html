@@ -1,178 +1,253 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; img-src 'self' data: file:; media-src 'self' file: blob:; style-src 'self'; script-src 'self'; connect-src 'none';">
-  <meta name="theme-color" content="#f5f6f8">
+  <meta name="theme-color" content="#10131b">
   <title>Klipo RevoSky</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8.5A3.5 3.5 0 0 1 9.5 5h13A3.5 3.5 0 0 1 26 8.5v15a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 6 23.5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m13 11 8 5-8 5z" fill="currentColor"/></svg></div>
-        <div><strong>Klipo</strong><span>REVOSKY STUDIO</span></div>
-      </div>
+      <a class="brand" href="#" aria-label="Klipo RevoSky beranda" data-go="dashboard">
+        <span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8.5A3.5 3.5 0 0 1 9.5 5h13A3.5 3.5 0 0 1 26 8.5v15a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 6 23.5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m13 11 8 5-8 5z" fill="currentColor"/></svg></span>
+        <span class="brand-copy"><strong>klipo<span>.</span></strong><small>REVOSKY STUDIO</small></span>
+      </a>
 
       <div class="workspace-label">WORKSPACE</div>
-      <button class="workspace-switch"><span class="workspace-dot"></span><span>My workspace</span><span class="chevron">⌄</span></button>
+      <div class="workspace-switch"><span class="workspace-dot"></span><span>Proyek lokal</span><span class="local-pill">OFFLINE FIRST</span></div>
 
-      <div class="nav-label">CREATE</div>
-      <nav class="primary-nav" aria-label="Main navigation">
-        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span data-i18n="navHome">Home</span></button>
-        <button class="nav-item" data-page="editor"><span class="nav-icon">▤</span><span data-i18n="navEditor">Editor</span></button>
-        <button class="nav-item" data-page="downloads"><span class="nav-icon">↓</span><span data-i18n="navDownloads">Downloads</span></button>
-        <button class="nav-item" data-page="ai"><span class="nav-icon">✳</span><span data-i18n="navAi">AI Studio</span></button>
+      <div class="nav-label">PRODUKSI</div>
+      <nav class="primary-nav" aria-label="Navigasi utama">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span>Beranda</span></button>
+        <button class="nav-item" data-page="editor"><span class="nav-icon">▤</span><span>Editor video</span></button>
+        <button class="nav-item" data-page="ai"><span class="nav-icon">✳</span><span>Studio AI</span><span class="nav-count">AI</span></button>
+        <button class="nav-item" data-page="downloads"><span class="nav-icon">↓</span><span>Unduh media</span></button>
       </nav>
 
-      <div class="nav-label library-label">YOUR LIBRARY</div>
-      <div class="library-list" id="libraryList"><div class="library-empty">No imported media yet</div></div>
+      <div class="library-heading"><span>MEDIA DISESI INI</span><span id="libraryCount">0</span></div>
+      <div class="library-list" id="libraryList"><div class="library-empty">Belum ada media. Impor video untuk memulai.</div></div>
 
       <div class="sidebar-bottom">
         <div class="device-card">
-          <div class="device-heading"><span class="status-dot"></span><span>THIS DEVICE</span></div>
-          <strong id="deviceCpu">Detecting hardware…</strong>
-          <div class="device-meta" id="deviceMemory">Checking memory</div>
-          <div class="device-meta" id="deviceEncoder">Checking video encoders</div>
+          <div class="device-heading"><span class="status-dot"></span><span>PERANGKAT TERDETEKSI</span></div>
+          <strong id="deviceCpu">Mendeteksi CPU…</strong>
+          <div class="device-meta" id="deviceMemory">Memeriksa RAM</div>
+          <div class="device-meta" id="deviceEncoder">Memeriksa encoder video</div>
         </div>
-        <button class="nav-item settings-link" data-page="settings"><span class="nav-icon">⚙</span><span data-i18n="navSettings">Settings</span></button>
-        <div class="sidebar-footer">KLIPO REVOSKY <span>v0.1.0</span></div>
+        <button class="nav-item settings-link" data-page="settings"><span class="nav-icon">⚙</span><span>Pengaturan</span></button>
+        <div class="sidebar-footer"><span>KLIPO REVOSKY</span><span>v0.2.0</span></div>
       </div>
     </aside>
 
     <main class="main-area">
       <header class="topbar">
-        <div class="breadcrumbs"><span>Klipo</span><i>/</i><strong id="pageBreadcrumb">Home</strong></div>
+        <div class="breadcrumbs"><span>Klipo</span><i>/</i><strong id="pageBreadcrumb">Beranda</strong></div>
         <div class="top-actions">
-          <span class="local-badge"><span class="status-dot"></span> LOCAL WORKSPACE</span>
-          <button class="language-toggle" id="languageToggle" aria-label="Change language">EN <span>⌄</span></button>
-          <button class="button button-primary button-small" id="globalImport"><span>＋</span> <span data-i18n="importMedia">Import media</span></button>
+          <span class="workspace-status"><span class="status-dot"></span> PEMROSESAN LOKAL</span>
+          <span class="job-chip" id="jobStatusTop">Siap digunakan</span>
+          <button class="button button-primary button-small" id="globalImport"><span>＋</span> Impor media</button>
         </div>
       </header>
 
       <div class="content-scroll">
         <section class="page active" id="page-dashboard" data-page-panel="dashboard">
-          <div class="welcome-row">
-            <div><div class="eyebrow">YOUR CREATIVE WORKSPACE</div><h1>Make every moment <span>count.</span></h1><p class="page-lead">Turn raw footage into stories worth watching. Your media stays on this device.</p></div>
-            <div class="welcome-decoration" aria-hidden="true"><div class="decor-ring ring-one"></div><div class="decor-ring ring-two"></div><div class="decor-play">▶</div></div>
-          </div>
-          <div class="quick-actions">
-            <button class="quick-card quick-card-primary" id="dashboardImport"><span class="quick-icon">↥</span><span><strong>Import your footage</strong><small>Open video or audio files from this PC</small></span><b>→</b></button>
-            <button class="quick-card" data-go="downloads"><span class="quick-icon soft-purple">↓</span><span><strong>Import from a URL</strong><small>Use yt-dlp for supported public links</small></span><b>→</b></button>
-            <button class="quick-card" data-go="ai"><span class="quick-icon soft-green">✳</span><span><strong>Open AI Studio</strong><small>Connect your own AI provider</small></span><b>→</b></button>
+          <div class="hero">
+            <div class="hero-copy">
+              <div class="eyebrow"><span class="eyebrow-line"></span> RUANG KERJA KREATOR</div>
+              <h1>Ubah footage menjadi<br><span>cerita yang menarik.</span></h1>
+              <p>Impor video, tentukan bagian terbaik, tambahkan caption, lalu ekspor. File sumber tetap berada di perangkatmu.</p>
+              <div class="hero-actions">
+                <button class="button button-primary button-large" id="dashboardImport"><span>＋</span> Mulai dari video</button>
+                <button class="button button-ghost button-large" data-go="editor">Buka editor <span>↗</span></button>
+              </div>
+              <div class="hero-foot"><span class="status-dot"></span> FFmpeg lokal <span class="hero-separator">·</span> Tidak perlu unggah footage untuk mengedit</div>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+              <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+              <div class="art-window"><div class="art-window-top"><i></i><i></i><i></i><span>KLIPO / STUDIO</span></div><div class="art-frame"><div class="art-sun"></div><div class="art-mountain mountain-one"></div><div class="art-mountain mountain-two"></div><div class="art-caption">MAKE IT<br><b>STAND OUT.</b></div></div><div class="art-timeline"><i></i><i></i><i></i><i></i><i></i></div></div>
+              <div class="art-badge"><span>✦</span> CREATIVE MODE</div>
+            </div>
           </div>
 
-          <div class="section-heading"><div><h2>Recent media</h2><p>Your imported files in this session</p></div><button class="text-button" id="dashboardOpenEditor">Open editor <span>→</span></button></div>
-          <div id="recentMedia" class="recent-grid"><div class="empty-state"><div class="empty-icon">▧</div><strong>Your workspace is ready</strong><p>Import a video to see its preview, duration, resolution and editing controls here.</p><button class="button button-secondary" id="emptyImport">Choose a media file</button></div></div>
-          <div class="notice-strip"><span class="notice-icon">i</span><p><strong>Built for your PC.</strong> Klipo uses local FFmpeg rendering. AI calls and supported URL downloads require an internet connection and their own provider/platform permissions.</p></div>
+          <div class="section-heading"><div><span class="section-kicker">MULAI CEPAT</span><h2>Pilih alur kerjamu</h2><p>Tiga cara untuk memulai sesi editing.</p></div></div>
+          <div class="workflow-grid">
+            <button class="workflow-card workflow-primary" id="emptyImport"><span class="workflow-number">01</span><span class="workflow-icon">↥</span><strong>Impor dari komputer</strong><small>Pilih video atau audio di laptop</small><span class="workflow-arrow">↗</span></button>
+            <button class="workflow-card" data-go="downloads"><span class="workflow-number">02</span><span class="workflow-icon icon-violet">↓</span><strong>Ambil dari URL</strong><small>Unduh tautan publik yang didukung</small><span class="workflow-arrow">↗</span></button>
+            <button class="workflow-card" data-go="ai"><span class="workflow-number">03</span><span class="workflow-icon icon-green">✳</span><strong>Temukan ide dengan AI</strong><small>Rencanakan hook dan potongan video</small><span class="workflow-arrow">↗</span></button>
+          </div>
+
+          <div class="section-heading recent-heading"><div><span class="section-kicker">SESI AKTIF</span><h2>Media terbaru</h2><p>Daftar file yang sudah diimpor selama aplikasi ini terbuka.</p></div><button class="text-link" id="dashboardOpenEditor">Buka editor <span>→</span></button></div>
+          <div id="recentMedia" class="recent-grid"><div class="empty-state"><div class="empty-state-icon">▧</div><strong>Workspace masih kosong</strong><p>Impor sebuah video untuk melihat durasi, resolusi, dan kontrol editing.</p><button class="button button-secondary" id="emptyImportFallback">Pilih video</button></div></div>
+
+          <div class="dashboard-info-grid">
+            <div class="info-card"><span class="info-icon">◈</span><div><strong>Render lokal</strong><p>FFmpeg memproses video di laptop. Pilih CPU untuk kompatibilitas terbaik.</p></div></div>
+            <div class="info-card"><span class="info-icon info-violet">✳</span><div><strong>AI sesuai konfigurasi</strong><p>AI memerlukan API provider dan kuota aktif. Pengeditan dasar tidak bergantung pada AI.</p></div></div>
+          </div>
         </section>
 
         <section class="page" id="page-editor" data-page-panel="editor">
-          <div class="editor-heading"><div><div class="eyebrow">CREATION WORKSPACE</div><h1>Video editor</h1><p class="page-lead">Trim a clip, apply render effects, style a caption and export with your available hardware.</p></div><button class="button button-secondary" id="editorImport">＋ Add media</button></div>
+          <div class="page-heading">
+            <div><div class="eyebrow"><span class="eyebrow-line"></span> WORKSPACE EDITING</div><h1>Editor video</h1><p>Atur bagian video, caption, efek, dan kualitas ekspor dalam satu tempat.</p></div>
+            <button class="button button-secondary" id="editorImport">＋ Tambah media</button>
+          </div>
+
           <div class="editor-layout">
-            <div class="preview-column">
+            <div class="editor-main">
               <div class="panel preview-panel">
-                <div class="panel-top"><div class="panel-title">Preview <span class="live-dot"></span></div><span class="panel-meta" id="previewResolution">No media selected</span></div>
+                <div class="panel-heading"><div><span class="panel-kicker">01 / PREVIEW</span><h2>Pratinjau video</h2></div><span class="panel-meta" id="previewResolution">Belum ada media</span></div>
                 <div class="video-stage" id="videoStage">
-                  <div class="preview-empty" id="previewEmpty"><div class="preview-empty-icon">▶</div><strong>Start with a video</strong><span>Import a file to preview it here</span><button class="button button-light" id="previewImport">Choose media</button></div>
-                  <video id="videoPreview" controls playsinline hidden></video>
+                  <div class="preview-empty" id="previewEmpty"><div class="preview-empty-icon">▶</div><strong>Mulai dengan video</strong><span>Impor file untuk menampilkan pratinjau.</span><button class="button button-light" id="previewImport">Pilih video</button></div>
+                  <video id="videoPreview" controls playsinline preload="metadata" hidden></video>
                   <div class="caption-overlay" id="captionOverlay" hidden></div>
                 </div>
-                <div class="media-summary"><div class="media-thumb">▣</div><div class="media-summary-copy"><strong id="selectedName">No media selected</strong><span id="selectedMeta">Import a video to begin editing</span></div><button class="icon-button" id="removeSelected" title="Clear selection" aria-label="Clear selection">×</button></div>
+                <div class="media-summary"><div class="media-thumb">▣</div><div class="media-summary-copy"><strong id="selectedName">Belum ada media dipilih</strong><span id="selectedMeta">Impor video untuk mulai mengedit</span></div><button class="icon-button" id="removeSelected" title="Hapus pilihan" aria-label="Hapus pilihan">×</button></div>
               </div>
 
               <div class="panel timeline-panel">
-                <div class="panel-top"><div class="panel-title">Clip range</div><span class="panel-meta">SINGLE CLIP · MVP</span></div>
-                <div class="range-inputs">
-                  <label>START (SEC)<input type="number" id="startSeconds" min="0" step="0.1" value="0"></label>
-                  <label>DURATION (SEC)<input type="number" id="durationSeconds" min="0.1" step="0.1" value="15"></label>
-                  <label>OUTPUT FPS<select id="outputFps"><option value="30">30 fps</option><option value="25">25 fps</option><option value="60">60 fps</option></select></label>
+                <div class="panel-heading"><div><span class="panel-kicker">02 / POTONG</span><h2>Rentang klip</h2></div><span class="panel-meta" id="timelineDuration">00:00</span></div>
+                <div class="trim-grid">
+                  <label>AWAL KLIP (DETIK)<input type="number" id="startSeconds" min="0" step="0.1" value="0"></label>
+                  <label>DURASI KLIP (DETIK)<input type="number" id="durationSeconds" min="0.1" step="0.1" value="15"></label>
+                  <label>FRAME RATE<select id="outputFps"><option value="30">30 FPS</option><option value="25">25 FPS</option><option value="60">60 FPS</option></select></label>
                 </div>
-                <div class="timeline-track"><div class="track-label"><span>VIDEO 01</span><span id="timelineDuration">00:00</span></div><div class="track-visual"><div class="track-fill"></div><span class="track-handle left"></span><span class="track-handle right"></span></div></div>
-                <div class="timeline-foot"><span>Current MVP supports one source clip per export.</span><button class="text-button" id="useFullClip">Use first 30 seconds</button></div>
+                <div class="range-control"><div class="range-control-heading"><span>POSISI AWAL</span><output id="startRangeValue">0.0 s</output></div><input type="range" id="trimStartSlider" min="0" max="0" step="0.1" value="0"></div>
+                <div class="range-control"><div class="range-control-heading"><span>PANJANG POTONGAN</span><output id="durationRangeValue">15.0 s</output></div><input type="range" id="trimDurationSlider" min="0.1" max="30" step="0.1" value="15"></div>
+                <div class="timeline-actions"><span>Rentang waktu yang diekspor ditentukan oleh dua nilai ini.</span><button class="text-link" id="useFullClip">Gunakan 30 detik pertama</button></div>
               </div>
             </div>
 
-            <aside class="inspector-column">
+            <aside class="editor-inspector">
               <div class="panel inspector-panel">
-                <div class="inspector-tabs"><button class="inspector-tab active">Text & effects</button><span class="inspector-tag">25 PRESETS</span></div>
-                <div class="field-group"><label for="captionText">CAPTION TEXT</label><textarea id="captionText" rows="3" maxlength="500" placeholder="Type a title or subtitle to overlay on your clip…"></textarea><div class="field-hint">One text block is overlaid for the full exported clip in this MVP.</div></div>
-                <div class="field-group"><label for="captionStyle">CAPTION STYLE</label><select id="captionStyle"></select><div class="style-sample" id="styleSample">Your caption preview</div></div>
-                <div class="field-group"><label for="renderEffects">VIDEO EFFECTS · MULTI-SELECT</label><select id="renderEffects" multiple size="5"><option value="cinematic">Cinematic contrast + color</option><option value="warm">Warm color balance</option><option value="monochrome">Black & white</option><option value="sharpen">Sharpen detail</option><option value="vignette">Vignette</option><option value="soft">Soft focus</option><option value="mirror">Mirror / flip</option><option value="bright">Brighten</option><option value="muted">Muted color</option></select><div class="field-hint">Select one or more actual FFmpeg filters. Effects are applied in the selected order.</div></div>
-                <div class="field-group"><label>OUTPUT FORMAT</label><div class="format-choice"><span class="format-active">9:16 <small>Vertical</small></span><span>16:9 <small>Planned</small></span><span>1:1 <small>Planned</small></span></div><div class="field-hint">Current export target is 1080 × 1920 portrait.</div></div>
-                <div class="field-group"><label for="renderMode">RENDER MODE</label><select id="renderMode"><option value="cpu">CPU · Software encode</option><option value="gpu">GPU · Hardware encode</option><option value="hybrid">Hybrid · CPU filters + GPU encode</option></select><div class="field-hint" id="encoderHint">CPU mode works without a compatible GPU encoder.</div></div>
-                <div class="field-group"><label for="renderEncoder">HARDWARE ENCODER</label><select id="renderEncoder"><option value="">Detecting encoders…</option></select></div>
-                <div class="field-group"><label for="cpuThreads">CPU THREADS <span id="threadValue">4</span></label><input type="range" id="cpuThreads" min="1" max="8" value="4"><div class="field-hint">Limits FFmpeg filter and software encoder threads.</div></div>
-                <button class="button button-primary export-button" id="exportButton"><span>↗</span> Export video</button>
-                <div class="export-note">MP4 · H.264 · AAC · Local render</div>
+                <div class="panel-heading inspector-title"><div><span class="panel-kicker">03 / TAMPILAN</span><h2>Caption & efek</h2></div><span class="preset-count">25 PRESET</span></div>
+                <div class="field-group"><label for="captionText">TEKS CAPTION</label><textarea id="captionText" rows="3" maxlength="500" placeholder="Tulis judul atau subtitle untuk video…"></textarea><small>Satu blok teks akan tampil selama klip yang diekspor.</small></div>
+                <div class="field-group"><label for="captionStyle">GAYA CAPTION</label><select id="captionStyle"></select><div class="style-sample" id="styleSample">Pratinjau caption</div></div>
+                <div class="field-group"><label>EFEK VIDEO</label><div class="effects-grid" id="renderEffects">
+                  <label class="effect-option"><input type="checkbox" data-effect="cinematic"><span>Cinematic</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="warm"><span>Warm</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="monochrome"><span>Hitam putih</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="sharpen"><span>Sharpen</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="vignette"><span>Vignette</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="soft"><span>Soft focus</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="mirror"><span>Mirror</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="bright"><span>Bright</span></label>
+                  <label class="effect-option"><input type="checkbox" data-effect="muted"><span>Muted</span></label>
+                </div><small>Efek diproses oleh FFmpeg saat ekspor.</small></div>
+                <div class="field-group"><label for="outputAspect">RASIO VIDEO</label><select id="outputAspect"><option value="vertical">Vertikal 9:16 · Reels / Shorts</option><option value="landscape">Horizontal 16:9 · YouTube</option><option value="square">Kotak 1:1 · Feed</option></select></div>
+                <div class="field-divider"></div>
+                <div class="panel-heading compact-heading"><div><span class="panel-kicker">04 / EKSPOR</span><h2>Pengaturan render</h2></div></div>
+                <div class="field-group"><label for="renderMode">MODE RENDER</label><select id="renderMode"><option value="cpu">CPU · Paling kompatibel</option><option value="gpu">GPU · Encoder hardware</option><option value="hybrid">Hybrid · Filter CPU + encoder GPU</option></select><small id="encoderHint">Mode CPU direkomendasikan untuk stabilitas.</small></div>
+                <div class="field-group"><label for="renderEncoder">HARDWARE ENCODER</label><select id="renderEncoder"><option value="">Deteksi encoder…</option></select></div>
+                <div class="field-group thread-field"><label for="cpuThreads">BATAS THREAD CPU <output id="threadValue">2</output></label><input type="range" id="cpuThreads" min="1" max="8" value="2"><small>Disesuaikan otomatis dengan RAM dan CPU perangkat.</small></div>
+                <button class="button button-primary export-button" id="exportButton"><span>↗</span> Ekspor MP4</button>
+                <div class="export-note">H.264 · AAC · MP4 · Render lokal</div>
               </div>
             </aside>
           </div>
         </section>
 
-        <section class="page" id="page-downloads" data-page-panel="downloads">
-          <div class="eyebrow">MEDIA INTAKE</div><h1>Import from a link</h1><p class="page-lead">Use yt-dlp to fetch media from sites it currently supports, when you have the rights and permission to download it.</p>
-          <div class="download-layout">
-            <div class="panel download-panel"><div class="large-icon">↓</div><h2>Paste a video URL</h2><p>Supported sites depend on yt-dlp and platform changes. Some URLs require sign-in or may not be downloadable.</p>
-              <label for="downloadUrl">VIDEO URL</label><input type="url" id="downloadUrl" placeholder="https://www.example.com/watch?v=…" autocomplete="url">
-              <button class="button button-primary download-button" id="downloadButton">↓ Start download</button>
-              <div class="compatibility"><span class="status-dot" id="ytStatusDot"></span><span id="ytStatus">Checking yt-dlp availability…</span></div>
-            </div>
-            <div class="panel guidance-panel"><h3>Before you download</h3><div class="guidance-item"><span>01</span><div><strong>Use content you are allowed to save</strong><p>Respect copyright, platform terms, privacy and creator permissions.</p></div></div><div class="guidance-item"><span>02</span><div><strong>No DRM or access-control bypass</strong><p>Klipo does not attempt to bypass DRM, paywalls or private-content restrictions.</p></div></div><div class="guidance-item"><span>03</span><div><strong>Install yt-dlp separately</strong><p>Put yt-dlp.exe in your Windows PATH, then restart the app.</p></div></div></div>
-          </div>
-          <div class="panel job-panel"><div class="panel-top"><div class="panel-title">Transfer activity</div><span class="panel-meta" id="downloadProgressLabel">IDLE</span></div><div class="progress-track"><span id="downloadProgressBar"></span></div><div class="job-status" id="downloadStatus">No active download.</div></div>
-        </section>
-
         <section class="page" id="page-ai" data-page-panel="ai">
-          <div class="eyebrow">AI PRODUCTION ASSISTANT</div><h1>AI Studio</h1><p class="page-lead">Use your configured model for planning and a compatible transcription endpoint for speech-to-text.</p>
+          <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> AI PRODUCTION</div><h1>Studio AI</h1><p>Gunakan AI untuk merencanakan konten dan menemukan momen menarik. API provider dan kuota aktif diperlukan.</p></div><button class="button button-secondary" data-go="settings">⚙ Atur provider</button></div>
           <div class="ai-layout">
-            <div class="panel chat-panel"><div class="panel-top"><div class="panel-title">Creative assistant <span class="ai-status" id="chatStatus">NOT CONFIGURED</span></div><button class="text-button" data-go="settings">Configure provider →</button></div>
-              <div class="chat-messages" id="chatMessages"><div class="assistant-message"><div class="assistant-avatar">✳</div><div><strong>Klipo Assistant</strong><p>Tell me what kind of clip you want to create. I can help plan a hook, pacing, caption copy and editing steps. I will not modify your files automatically.</p></div></div></div>
-              <form id="chatForm" class="chat-form"><textarea id="chatInput" rows="2" placeholder="Describe the video idea or ask for an editing plan…"></textarea><button class="button button-primary" type="submit" id="chatSend">Send <span>↑</span></button></form>
+            <div class="panel chat-panel">
+              <div class="panel-heading"><div><span class="panel-kicker">CREATIVE ASSISTANT</span><h2>Asisten kreatif</h2></div><span class="ai-status" id="chatStatus">BELUM DIATUR</span></div>
+              <div class="chat-messages" id="chatMessages" aria-live="polite"><div class="assistant-message"><div class="assistant-avatar">✳</div><div><strong>Klipo Assistant</strong><p>Ceritakan video yang ingin kamu buat. Aku dapat membantu menyusun hook, ide caption, dan alur editing. Aku tidak akan mengubah file tanpa tindakanmu.</p></div></div></div>
+              <form id="chatForm" class="chat-form"><textarea id="chatInput" rows="2" maxlength="4000" placeholder="Contoh: buatkan konsep video 30 detik tentang…"></textarea><button class="button button-primary" type="submit" id="chatSend">Kirim <span>↑</span></button></form>
+              <div class="chat-footnote">Chat menggunakan model dan kuota dari provider yang kamu konfigurasi.</div>
             </div>
-            <div class="panel transcription-panel"><div class="panel-top"><div class="panel-title">Transcription</div><span class="panel-meta">AUDIO → TEXT</span></div><div class="transcribe-icon">文</div><h3>Transcribe selected media</h3><p>Uses the audio transcription endpoint configured in Settings. Video files are extracted to audio locally before upload.</p><div class="transcribe-source" id="transcribeSource">No media selected</div><button class="button button-secondary" id="transcribeButton">Transcribe selected file</button><div class="field-group transcript-output-group"><label for="transcriptOutput">TRANSCRIPT</label><textarea id="transcriptOutput" rows="8" placeholder="Your transcription will appear here…"></textarea><button class="text-button" id="useTranscript">Use transcript as caption →</button></div></div>
+
+            <div class="panel transcription-panel">
+              <div class="panel-heading"><div><span class="panel-kicker">SPEECH TO TEXT</span><h2>Transkripsi audio</h2></div><span class="transcribe-icon">文</span></div>
+              <p>Ambil teks ucapan dari file video atau audio yang dipilih. Audio video diekstrak secara lokal sebelum dikirim ke endpoint transkripsi.</p>
+              <div class="transcribe-source" id="transcribeSource">Belum ada media dipilih</div>
+              <button class="button button-secondary full-button" id="transcribeButton">Transkripsikan media terpilih</button>
+              <div class="field-group transcript-output-group"><label for="transcriptOutput">HASIL TRANSKRIPSI</label><textarea id="transcriptOutput" rows="7" placeholder="Hasil transkripsi akan muncul di sini…"></textarea><button class="text-link" type="button" id="useTranscript">Gunakan sebagai caption →</button></div>
+            </div>
           </div>
           <div class="panel highlight-panel">
-            <div class="panel-top"><div class="panel-title">AI auto highlights</div><span class="panel-meta">TIMESTAMPED TRANSCRIPT</span></div>
-            <p>Find strong moments using timestamped transcription and your configured AI chat model. Klipo suggests clip ranges; you approve each range before exporting.</p>
-            <div class="highlight-actions"><button class="button button-primary" id="findHighlightsButton" disabled>Find highlights in selected media</button><span id="highlightStatus">Import and select a video with audio first.</span></div>
-            <div class="highlight-list" id="highlightResults"><div class="highlight-empty">No AI highlight suggestions yet.</div></div>
+            <div class="panel-heading"><div><span class="panel-kicker">AI CLIP FINDER</span><h2>Temukan momen terbaik</h2></div><span class="panel-meta">MAKS. 5 SARAN</span></div>
+            <p>Klipo membuat transkrip bertimestamp, meminta model AI menilai momen, lalu memvalidasi rentang waktu. Kamu tetap memilih klip yang akan diekspor.</p>
+            <div class="highlight-actions"><button class="button button-primary" id="findHighlightsButton" disabled>✦ Cari highlight</button><span id="highlightStatus">Impor video dengan audio untuk memulai.</span></div>
+            <div class="highlight-list" id="highlightResults"><div class="highlight-empty">Belum ada saran highlight. Impor video lalu jalankan analisis.</div></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-downloads" data-page-panel="downloads">
+          <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> MEDIA INTAKE</div><h1>Unduh media</h1><p>Masukkan tautan publik yang didukung yt-dlp dan hanya unduh konten yang kamu punya hak atau izin untuk simpan.</p></div></div>
+          <div class="download-layout">
+            <div class="panel download-panel">
+              <div class="download-icon">↓</div><span class="panel-kicker">URL DOWNLOADER</span><h2>Impor video dari tautan</h2><p>Klipo menyertakan yt-dlp pada installer baru. Dukungan situs bisa berubah sewaktu-waktu dan beberapa link tidak dapat diunduh.</p>
+              <label for="downloadUrl">URL VIDEO</label><input type="url" id="downloadUrl" placeholder="https://…" autocomplete="url">
+              <button class="button button-primary full-button" id="downloadButton">Mulai unduh <span>↓</span></button>
+              <div class="compatibility"><span class="status-dot" id="ytStatusDot"></span><span id="ytStatus">Memeriksa yt-dlp…</span></div>
+              <div class="download-progress"><div class="download-progress-top"><span>PROGRES</span><strong id="downloadProgressLabel">IDLE</strong></div><div class="progress-track"><span id="downloadProgressBar"></span></div><p id="downloadStatus">Belum ada unduhan.</p></div>
+            </div>
+            <div class="panel guidance-panel">
+              <span class="panel-kicker">PENGGUNAAN YANG AMAN</span><h2>Sebelum mengunduh</h2>
+              <div class="guidance-item"><span>01</span><div><strong>Pastikan kamu memiliki izin</strong><p>Hormati hak cipta, ketentuan platform, privasi, dan izin kreator.</p></div></div>
+              <div class="guidance-item"><span>02</span><div><strong>Tidak ada bypass DRM</strong><p>Klipo tidak melewati paywall, DRM, login privat, atau pembatasan akses.</p></div></div>
+              <div class="guidance-item"><span>03</span><div><strong>File akan masuk ke editor</strong><p>Setelah unduhan berhasil, Klipo mencoba mengimpor hasilnya ke library sesi ini.</p></div></div>
+            </div>
           </div>
         </section>
 
         <section class="page" id="page-settings" data-page-panel="settings">
-          <div class="eyebrow">PREFERENCES & CONNECTIONS</div><h1>Settings</h1><p class="page-lead">Choose your language, configure AI endpoints and review local processing capabilities.</p>
+          <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> PREFERENSI APLIKASI</div><h1>Pengaturan</h1><p>Hubungkan provider AI, pilih model yang tersedia, dan periksa kemampuan perangkat.</p></div></div>
           <div class="settings-grid">
-            <div class="panel settings-panel"><div class="panel-top"><div class="panel-title">AI provider connections</div><span class="panel-meta">ENCRYPTED STORAGE</span></div>
-              <div class="settings-section"><h3>Chat / editing assistant</h3><p>Works with OpenAI-compatible chat completion APIs. Each provider must support the chosen model and endpoint.</p>
+            <div class="panel settings-panel">
+              <div class="panel-heading"><div><span class="panel-kicker">AI PROVIDER</span><h2>Koneksi asisten AI</h2></div><span class="security-tag">KEY TERENKRIPSI</span></div>
+              <div class="settings-section">
+                <h3>Chat / editing assistant</h3><p>Kompatibel dengan endpoint OpenAI-style seperti OpenRouter dan provider lain yang menyediakan chat completions.</p>
                 <label for="chatBaseUrl">API BASE URL</label><input id="chatBaseUrl" type="url" value="https://openrouter.ai/api/v1">
-                <label for="chatModel">MODEL ID</label><input id="chatModel" placeholder="e.g. deepseek/deepseek-chat">
-                <label for="chatApiKey">API KEY</label><input id="chatApiKey" type="password" placeholder="Paste a new key to save or leave blank to keep existing">
-                <div class="provider-status" id="chatConfigStatus">Not configured</div>
+                <label for="chatModel">MODEL ID UTAMA</label><div class="model-row"><input id="chatModel" list="chatModelSuggestions" placeholder="Muat katalog atau masukkan model ID"><datalist id="chatModelSuggestions"></datalist><button class="button button-secondary" type="button" id="loadChatModels">Muat model</button></div>
+                <small class="form-help">Katalog diambil langsung dari endpoint /models provider; daftar tidak ditanam permanen di aplikasi.</small>
+                <label for="chatFallbackModels">MODEL CADANGAN (OPSIONAL)</label><input id="chatFallbackModels" placeholder="provider/model-id-2, provider/model-id-3">
+                <small class="form-help">Fallback dicoba untuk model yang tidak tersedia atau provider sibuk. Batas kuota harian tidak diulang.</small>
+                <label for="chatApiKey">API KEY</label><input id="chatApiKey" type="password" autocomplete="off" placeholder="Masukkan API key; dikosongkan untuk mempertahankan key tersimpan">
+                <div class="provider-status" id="chatConfigStatus">Belum dikonfigurasi</div>
               </div>
-              <div class="settings-section"><h3>Speech transcription</h3><p>Requires an audio transcription endpoint such as an OpenAI-compatible /audio/transcriptions implementation. A chat-only model cannot transcribe audio by itself.</p>
+              <div class="settings-section">
+                <h3>Transkripsi ucapan</h3><p>Memerlukan endpoint /audio/transcriptions yang benar-benar mendukung model audio. Model chat biasa tidak otomatis bisa mentranskripsikan suara.</p>
                 <label for="transcriptionBaseUrl">TRANSCRIPTION BASE URL</label><input id="transcriptionBaseUrl" type="url" value="https://api.openai.com/v1">
-                <label for="transcriptionModel">TRANSCRIPTION MODEL</label><input id="transcriptionModel" value="whisper-1">
-                <label for="transcriptionApiKey">API KEY</label><input id="transcriptionApiKey" type="password" placeholder="Paste a new key to save or leave blank to keep existing">
-                <div class="provider-status" id="transcriptionConfigStatus">Not configured</div>
+                <label for="transcriptionModel">MODEL TRANSKRIPSI</label><input id="transcriptionModel" value="whisper-1">
+                <label for="transcriptionApiKey">API KEY TRANSKRIPSI</label><input id="transcriptionApiKey" type="password" autocomplete="off" placeholder="API key untuk endpoint transkripsi">
+                <div class="provider-status" id="transcriptionConfigStatus">Belum dikonfigurasi</div>
               </div>
-              <button class="button button-primary" id="saveAiSettings">Save provider settings</button><span class="save-feedback" id="settingsFeedback"></span>
+              <button class="button button-primary full-button" id="saveAiSettings">Simpan pengaturan AI</button>
+              <span class="save-feedback" id="settingsFeedback" aria-live="polite"></span>
             </div>
-            <div class="panel settings-panel"><div class="panel-top"><div class="panel-title">Application preferences</div></div>
-              <div class="settings-section"><h3>Interface language</h3><p>English is the default language. Indonesian is also available.</p><select id="settingsLanguage"><option value="en">English</option><option value="id">Bahasa Indonesia</option></select></div>
-              <div class="settings-section"><h3>Hardware detected</h3><div class="spec-row"><span>Processor</span><strong id="specCpu">Detecting…</strong></div><div class="spec-row"><span>Logical CPUs</span><strong id="specThreads">—</strong></div><div class="spec-row"><span>Installed RAM</span><strong id="specMemory">—</strong></div><div class="spec-row"><span>Hardware encoders</span><strong id="specEncoders">—</strong></div><div class="spec-row"><span>FFmpeg</span><strong id="specFfmpeg">—</strong></div><div class="spec-row"><span>yt-dlp</span><strong id="specYtdlp">—</strong></div></div>
-              <div class="settings-section"><h3>Local processing</h3><p>Video rendering is performed locally by FFmpeg. API calls leave your device only when you explicitly use an AI feature. Imported media is not uploaded by the editor pipeline.</p><div class="privacy-note">API keys are stored using Electron safeStorage when the operating system reports encryption is available.</div></div>
+
+            <div class="settings-side">
+              <div class="panel settings-panel">
+                <div class="panel-heading"><div><span class="panel-kicker">SYSTEM CHECK</span><h2>Kemampuan perangkat</h2></div><span class="panel-meta">LIVE</span></div>
+                <div class="spec-list">
+                  <div class="spec-row"><span>Processor</span><strong id="specCpu">Mendeteksi…</strong></div>
+                  <div class="spec-row"><span>Logical CPU</span><strong id="specThreads">—</strong></div>
+                  <div class="spec-row"><span>RAM terpasang</span><strong id="specMemory">—</strong></div>
+                  <div class="spec-row"><span>Profil render</span><strong id="specProfile">—</strong></div>
+                  <div class="spec-row"><span>Hardware encoder</span><strong id="specEncoders">—</strong></div>
+                  <div class="spec-row"><span>FFmpeg / FFprobe</span><strong id="specFfmpeg">—</strong></div>
+                  <div class="spec-row"><span>yt-dlp</span><strong id="specYtdlp">—</strong></div>
+                </div>
+              </div>
+              <div class="panel privacy-panel"><span class="privacy-icon">◇</span><h3>Privasi dan kredensial</h3><p>Render dan pratinjau video diproses lokal. API key disimpan melalui Electron safeStorage ketika enkripsi OS tersedia. Key tidak ditampilkan ulang di layar atau dikirim ke renderer setelah disimpan.</p></div>
+              <div class="panel integration-panel"><strong>Integrasi yang belum aktif</strong><p>Google Drive OAuth, MCP server, dan publikasi clippo.id belum diimplementasikan pada versi ini. Aplikasi tidak menampilkan integrasi tersebut sebagai fitur aktif.</p></div>
             </div>
           </div>
-          <div class="panel integration-note"><div class="notice-icon">i</div><div><strong>Integrations are enabled only when they are real.</strong><p>Google Drive OAuth, user-provided MCP servers and clippo.id publishing are not active in this build. They require official API documentation, OAuth/client configuration, permission scopes and an explicit security review.</p></div></div>
         </section>
 
-        <section class="job-console panel" id="jobConsole"><div class="console-header"><div><span class="console-indicator"></span><strong>ACTIVITY LOG</strong><span class="console-subtitle">Visible process output</span></div><button class="text-button" id="clearLogs">Clear</button></div><div class="progress-row"><div class="progress-track"><span id="globalProgressBar"></span></div><strong id="globalProgressText">Idle</strong></div><div class="eta-row"><span id="jobEta">No active job</span><button class="button button-danger-quiet" id="cancelJob" disabled>Cancel job</button><button class="text-button" id="openOutput" hidden>Open output →</button></div><div class="console-lines" id="consoleLines"><div class="console-line muted">Klipo is ready. Activity appears here when a job starts.</div></div></section>
+        <section class="job-console panel" id="jobConsole" aria-label="Aktivitas pekerjaan">
+          <div class="console-header"><div><span class="console-pulse"></span><div><strong>AKTIVITAS</strong><small id="jobEta">Tidak ada pekerjaan aktif</small></div></div><div class="console-actions"><span id="globalProgressText">SIAP</span><button class="button button-danger-quiet" id="cancelJob" disabled>Batalkan</button><button class="text-link" id="openOutput" hidden>Buka hasil ↗</button><button class="icon-button clear-log" id="clearLogs" title="Bersihkan log" aria-label="Bersihkan log">⌫</button></div></div>
+          <div class="progress-track global-progress"><span id="globalProgressBar"></span></div>
+          <div class="console-lines" id="consoleLines"><div class="console-line muted">Klipo siap. Aktivitas render, AI, dan unduhan akan muncul di sini.</div></div>
+        </section>
       </div>
     </main>
   </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="./core/output-profiles.js"></script>
   <script src="./renderer.js"></script>
 </body>
 </html>
