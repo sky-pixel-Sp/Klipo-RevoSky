@@ -1,8 +1,8 @@
 {
   "name": "klipo-revosky",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
-  "description": "Local-first desktop AI clipping and video editing for Windows",
+  "description": "Local-first Windows video studio with clear editing workflows and provider-aware AI tools",
   "main": "electron/main.js",
   "engines": {
     "node": ">=20.19.0"
@@ -14,7 +14,7 @@
     "predist:win": "node scripts/fetch-yt-dlp.js",
     "dist:win": "electron-builder --win nsis --publish never",
     "pack:win": "electron-builder --win dir --publish never",
-    "check": "node --check scripts/fetch-yt-dlp.js && node --check electron/downloader-path.js && node --check tests/downloader-path.test.js && node --check electron/main.js && node --check electron/binary-path.js && node --check electron/preload.js && node --check electron/process-utils.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/core/highlights.js && node --check src/caption-presets.js && node --check tests/render-plan.test.js && node --check tests/binary-path.test.js && node --check tests/highlights.test.js && node --check tests/process-utils.test.js && node --check tests/render-e2e.test.js"
+    "check": "node --check scripts/fetch-yt-dlp.js && node --check electron/ai-provider.js && node --check electron/downloader-path.js && node --check electron/binary-path.js && node --check electron/main.js && node --check electron/preload.js && node --check electron/process-utils.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/core/highlights.js && node --check src/core/output-profiles.js && node --check src/core/device-profile.js && node --check src/caption-presets.js && node --check tests/ai-provider.test.js && node --check tests/downloader-path.test.js && node --check tests/output-profile.test.js && node --check tests/ui-contract.test.js && node --check tests/render-plan.test.js && node --check tests/binary-path.test.js && node --check tests/highlights.test.js && node --check tests/process-utils.test.js && node --check tests/render-e2e.test.js"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
@@ -29,7 +29,10 @@
     "productName": "Klipo RevoSky",
     "asar": true,
     "extraResources": [
-      { "from": "vendor/yt-dlp.exe", "to": "bin/yt-dlp.exe" }
+      {
+        "from": "vendor/yt-dlp.exe",
+        "to": "bin/yt-dlp.exe"
+      }
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**/*",
