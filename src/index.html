@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; img-src 'self' data: file:; media-src 'self' file: blob:; style-src 'self'; script-src 'self'; connect-src 'none';">
+  <meta name="theme-color" content="#f5f6f8">
+  <title>Klipo RevoSky</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8.5A3.5 3.5 0 0 1 9.5 5h13A3.5 3.5 0 0 1 26 8.5v15a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 6 23.5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m13 11 8 5-8 5z" fill="currentColor"/></svg></div>
+        <div><strong>Klipo</strong><span>REVOSKY STUDIO</span></div>
+      </div>
+
+      <div class="workspace-label">WORKSPACE</div>
+      <button class="workspace-switch"><span class="workspace-dot"></span><span>My workspace</span><span class="chevron">⌄</span></button>
+
+      <div class="nav-label">CREATE</div>
+      <nav class="primary-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span><span data-i18n="navHome">Home</span></button>
+        <button class="nav-item" data-page="editor"><span class="nav-icon">▤</span><span data-i18n="navEditor">Editor</span></button>
+        <button class="nav-item" data-page="downloads"><span class="nav-icon">↓</span><span data-i18n="navDownloads">Downloads</span></button>
+        <button class="nav-item" data-page="ai"><span class="nav-icon">✳</span><span data-i18n="navAi">AI Studio</span></button>
+      </nav>
+
+      <div class="nav-label library-label">YOUR LIBRARY</div>
+      <div class="library-list" id="libraryList"><div class="library-empty">No imported media yet</div></div>
+
+      <div class="sidebar-bottom">
+        <div class="device-card">
+          <div class="device-heading"><span class="status-dot"></span><span>THIS DEVICE</span></div>
+          <strong id="deviceCpu">Detecting hardware…</strong>
+          <div class="device-meta" id="deviceMemory">Checking memory</div>
+          <div class="device-meta" id="deviceEncoder">Checking video encoders</div>
+        </div>
+        <button class="nav-item settings-link" data-page="settings"><span class="nav-icon">⚙</span><span data-i18n="navSettings">Settings</span></button>
+        <div class="sidebar-footer">KLIPO REVOSKY <span>v0.1.0</span></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Klipo</span><i>/</i><strong id="pageBreadcrumb">Home</strong></div>
+        <div class="top-actions">
+          <span class="local-badge"><span class="status-dot"></span> LOCAL WORKSPACE</span>
+          <button class="language-toggle" id="languageToggle" aria-label="Change language">EN <span>⌄</span></button>
+          <button class="button button-primary button-small" id="globalImport"><span>＋</span> <span data-i18n="importMedia">Import media</span></button>
+        </div>
+      </header>
+
+      <div class="content-scroll">
+        <section class="page active" id="page-dashboard" data-page-panel="dashboard">
+          <div class="welcome-row">
+            <div><div class="eyebrow">YOUR CREATIVE WORKSPACE</div><h1>Make every moment <span>count.</span></h1><p class="page-lead">Turn raw footage into stories worth watching. Your media stays on this device.</p></div>
+            <div class="welcome-decoration" aria-hidden="true"><div class="decor-ring ring-one"></div><div class="decor-ring ring-two"></div><div class="decor-play">▶</div></div>
+          </div>
+          <div class="quick-actions">
+            <button class="quick-card quick-card-primary" id="dashboardImport"><span class="quick-icon">↥</span><span><strong>Import your footage</strong><small>Open video or audio files from this PC</small></span><b>→</b></button>
+            <button class="quick-card" data-go="downloads"><span class="quick-icon soft-purple">↓</span><span><strong>Import from a URL</strong><small>Use yt-dlp for supported public links</small></span><b>→</b></button>
+            <button class="quick-card" data-go="ai"><span class="quick-icon soft-green">✳</span><span><strong>Open AI Studio</strong><small>Connect your own AI provider</small></span><b>→</b></button>
+          </div>
+
+          <div class="section-heading"><div><h2>Recent media</h2><p>Your imported files in this session</p></div><button class="text-button" id="dashboardOpenEditor">Open editor <span>→</span></button></div>
+          <div id="recentMedia" class="recent-grid"><div class="empty-state"><div class="empty-icon">▧</div><strong>Your workspace is ready</strong><p>Import a video to see its preview, duration, resolution and editing controls here.</p><button class="button button-secondary" id="emptyImport">Choose a media file</button></div></div>
+          <div class="notice-strip"><span class="notice-icon">i</span><p><strong>Built for your PC.</strong> Klipo uses local FFmpeg rendering. AI calls and supported URL downloads require an internet connection and their own provider/platform permissions.</p></div>
+        </section>
+
+        <section class="page" id="page-editor" data-page-panel="editor">
+          <div class="editor-heading"><div><div class="eyebrow">CREATION WORKSPACE</div><h1>Video editor</h1><p class="page-lead">Trim a clip, apply render effects, style a caption and export with your available hardware.</p></div><button class="button button-secondary" id="editorImport">＋ Add media</button></div>
+          <div class="editor-layout">
+            <div class="preview-column">
+              <div class="panel preview-panel">
+                <div class="panel-top"><div class="panel-title">Preview <span class="live-dot"></span></div><span class="panel-meta" id="previewResolution">No media selected</span></div>
+                <div class="video-stage" id="videoStage">
+                  <div class="preview-empty" id="previewEmpty"><div class="preview-empty-icon">▶</div><strong>Start with a video</strong><span>Import a file to preview it here</span><button class="button button-light" id="previewImport">Choose media</button></div>
+                  <video id="videoPreview" controls playsinline hidden></video>
+                  <div class="caption-overlay" id="captionOverlay" hidden></div>
+                </div>
+                <div class="media-summary"><div class="media-thumb">▣</div><div class="media-summary-copy"><strong id="selectedName">No media selected</strong><span id="selectedMeta">Import a video to begin editing</span></div><button class="icon-button" id="removeSelected" title="Clear selection" aria-label="Clear selection">×</button></div>
+              </div>
+
+              <div class="panel timeline-panel">
+                <div class="panel-top"><div class="panel-title">Clip range</div><span class="panel-meta">SINGLE CLIP · MVP</span></div>
+                <div class="range-inputs">
+                  <label>START (SEC)<input type="number" id="startSeconds" min="0" step="0.1" value="0"></label>
+                  <label>DURATION (SEC)<input type="number" id="durationSeconds" min="0.1" step="0.1" value="15"></label>
+                  <label>OUTPUT FPS<select id="outputFps"><option value="30">30 fps</option><option value="25">25 fps</option><option value="60">60 fps</option></select></label>
+                </div>
+                <div class="timeline-track"><div class="track-label"><span>VIDEO 01</span><span id="timelineDuration">00:00</span></div><div class="track-visual"><div class="track-fill"></div><span class="track-handle left"></span><span class="track-handle right"></span></div></div>
+                <div class="timeline-foot"><span>Current MVP supports one source clip per export.</span><button class="text-button" id="useFullClip">Use first 30 seconds</button></div>
+              </div>
+            </div>
+
+            <aside class="inspector-column">
+              <div class="panel inspector-panel">
+                <div class="inspector-tabs"><button class="inspector-tab active">Text & effects</button><span class="inspector-tag">25 PRESETS</span></div>
+                <div class="field-group"><label for="captionText">CAPTION TEXT</label><textarea id="captionText" rows="3" maxlength="500" placeholder="Type a title or subtitle to overlay on your clip…"></textarea><div class="field-hint">One text block is overlaid for the full exported clip in this MVP.</div></div>
+                <div class="field-group"><label for="captionStyle">CAPTION STYLE</label><select id="captionStyle"></select><div class="style-sample" id="styleSample">Your caption preview</div></div>
+                <div class="field-group"><label for="renderEffects">VIDEO EFFECTS · MULTI-SELECT</label><select id="renderEffects" multiple size="5"><option value="cinematic">Cinematic contrast + color</option><option value="warm">Warm color balance</option><option value="monochrome">Black & white</option><option value="sharpen">Sharpen detail</option><option value="vignette">Vignette</option><option value="soft">Soft focus</option><option value="mirror">Mirror / flip</option><option value="bright">Brighten</option><option value="muted">Muted color</option></select><div class="field-hint">Select one or more actual FFmpeg filters. Effects are applied in the selected order.</div></div>
+                <div class="field-group"><label>OUTPUT FORMAT</label><div class="format-choice"><span class="format-active">9:16 <small>Vertical</small></span><span>16:9 <small>Planned</small></span><span>1:1 <small>Planned</small></span></div><div class="field-hint">Current export target is 1080 × 1920 portrait.</div></div>
+                <div class="field-group"><label for="renderMode">RENDER MODE</label><select id="renderMode"><option value="cpu">CPU · Software encode</option><option value="gpu">GPU · Hardware encode</option><option value="hybrid">Hybrid · CPU filters + GPU encode</option></select><div class="field-hint" id="encoderHint">CPU mode works without a compatible GPU encoder.</div></div>
+                <div class="field-group"><label for="renderEncoder">HARDWARE ENCODER</label><select id="renderEncoder"><option value="">Detecting encoders…</option></select></div>
+                <div class="field-group"><label for="cpuThreads">CPU THREADS <span id="threadValue">4</span></label><input type="range" id="cpuThreads" min="1" max="8" value="4"><div class="field-hint">Limits FFmpeg filter and software encoder threads.</div></div>
+                <button class="button button-primary export-button" id="exportButton"><span>↗</span> Export video</button>
+                <div class="export-note">MP4 · H.264 · AAC · Local render</div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-downloads" data-page-panel="downloads">
+          <div class="eyebrow">MEDIA INTAKE</div><h1>Import from a link</h1><p class="page-lead">Use yt-dlp to fetch media from sites it currently supports, when you have the rights and permission to download it.</p>
+          <div class="download-layout">
+            <div class="panel download-panel"><div class="large-icon">↓</div><h2>Paste a video URL</h2><p>Supported sites depend on yt-dlp and platform changes. Some URLs require sign-in or may not be downloadable.</p>
+              <label for="downloadUrl">VIDEO URL</label><input type="url" id="downloadUrl" placeholder="https://www.example.com/watch?v=…" autocomplete="url">
+              <button class="button button-primary download-button" id="downloadButton">↓ Start download</button>
+              <div class="compatibility"><span class="status-dot" id="ytStatusDot"></span><span id="ytStatus">Checking yt-dlp availability…</span></div>
+            </div>
+            <div class="panel guidance-panel"><h3>Before you download</h3><div class="guidance-item"><span>01</span><div><strong>Use content you are allowed to save</strong><p>Respect copyright, platform terms, privacy and creator permissions.</p></div></div><div class="guidance-item"><span>02</span><div><strong>No DRM or access-control bypass</strong><p>Klipo does not attempt to bypass DRM, paywalls or private-content restrictions.</p></div></div><div class="guidance-item"><span>03</span><div><strong>Install yt-dlp separately</strong><p>Put yt-dlp.exe in your Windows PATH, then restart the app.</p></div></div></div>
+          </div>
+          <div class="panel job-panel"><div class="panel-top"><div class="panel-title">Transfer activity</div><span class="panel-meta" id="downloadProgressLabel">IDLE</span></div><div class="progress-track"><span id="downloadProgressBar"></span></div><div class="job-status" id="downloadStatus">No active download.</div></div>
+        </section>
+
+        <section class="page" id="page-ai" data-page-panel="ai">
+          <div class="eyebrow">AI PRODUCTION ASSISTANT</div><h1>AI Studio</h1><p class="page-lead">Use your configured model for planning and a compatible transcription endpoint for speech-to-text.</p>
+          <div class="ai-layout">
+            <div class="panel chat-panel"><div class="panel-top"><div class="panel-title">Creative assistant <span class="ai-status" id="chatStatus">NOT CONFIGURED</span></div><button class="text-button" data-go="settings">Configure provider →</button></div>
+              <div class="chat-messages" id="chatMessages"><div class="assistant-message"><div class="assistant-avatar">✳</div><div><strong>Klipo Assistant</strong><p>Tell me what kind of clip you want to create. I can help plan a hook, pacing, caption copy and editing steps. I will not modify your files automatically.</p></div></div></div>
+              <form id="chatForm" class="chat-form"><textarea id="chatInput" rows="2" placeholder="Describe the video idea or ask for an editing plan…"></textarea><button class="button button-primary" type="submit" id="chatSend">Send <span>↑</span></button></form>
+            </div>
+            <div class="panel transcription-panel"><div class="panel-top"><div class="panel-title">Transcription</div><span class="panel-meta">AUDIO → TEXT</span></div><div class="transcribe-icon">文</div><h3>Transcribe selected media</h3><p>Uses the audio transcription endpoint configured in Settings. Video files are extracted to audio locally before upload.</p><div class="transcribe-source" id="transcribeSource">No media selected</div><button class="button button-secondary" id="transcribeButton">Transcribe selected file</button><div class="field-group transcript-output-group"><label for="transcriptOutput">TRANSCRIPT</label><textarea id="transcriptOutput" rows="8" placeholder="Your transcription will appear here…"></textarea><button class="text-button" id="useTranscript">Use transcript as caption →</button></div></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-settings" data-page-panel="settings">
+          <div class="eyebrow">PREFERENCES & CONNECTIONS</div><h1>Settings</h1><p class="page-lead">Choose your language, configure AI endpoints and review local processing capabilities.</p>
+          <div class="settings-grid">
+            <div class="panel settings-panel"><div class="panel-top"><div class="panel-title">AI provider connections</div><span class="panel-meta">ENCRYPTED STORAGE</span></div>
+              <div class="settings-section"><h3>Chat / editing assistant</h3><p>Works with OpenAI-compatible chat completion APIs. Each provider must support the chosen model and endpoint.</p>
+                <label for="chatBaseUrl">API BASE URL</label><input id="chatBaseUrl" type="url" value="https://openrouter.ai/api/v1">
+                <label for="chatModel">MODEL ID</label><input id="chatModel" placeholder="e.g. deepseek/deepseek-chat">
+                <label for="chatApiKey">API KEY</label><input id="chatApiKey" type="password" placeholder="Paste a new key to save or leave blank to keep existing">
+                <div class="provider-status" id="chatConfigStatus">Not configured</div>
+              </div>
+              <div class="settings-section"><h3>Speech transcription</h3><p>Requires an audio transcription endpoint such as an OpenAI-compatible /audio/transcriptions implementation. A chat-only model cannot transcribe audio by itself.</p>
+                <label for="transcriptionBaseUrl">TRANSCRIPTION BASE URL</label><input id="transcriptionBaseUrl" type="url" value="https://api.openai.com/v1">
+                <label for="transcriptionModel">TRANSCRIPTION MODEL</label><input id="transcriptionModel" value="whisper-1">
+                <label for="transcriptionApiKey">API KEY</label><input id="transcriptionApiKey" type="password" placeholder="Paste a new key to save or leave blank to keep existing">
+                <div class="provider-status" id="transcriptionConfigStatus">Not configured</div>
+              </div>
+              <button class="button button-primary" id="saveAiSettings">Save provider settings</button><span class="save-feedback" id="settingsFeedback"></span>
+            </div>
+            <div class="panel settings-panel"><div class="panel-top"><div class="panel-title">Application preferences</div></div>
+              <div class="settings-section"><h3>Interface language</h3><p>English is the default language. Indonesian is also available.</p><select id="settingsLanguage"><option value="en">English</option><option value="id">Bahasa Indonesia</option></select></div>
+              <div class="settings-section"><h3>Hardware detected</h3><div class="spec-row"><span>Processor</span><strong id="specCpu">Detecting…</strong></div><div class="spec-row"><span>Logical CPUs</span><strong id="specThreads">—</strong></div><div class="spec-row"><span>Installed RAM</span><strong id="specMemory">—</strong></div><div class="spec-row"><span>Hardware encoders</span><strong id="specEncoders">—</strong></div><div class="spec-row"><span>FFmpeg</span><strong id="specFfmpeg">—</strong></div><div class="spec-row"><span>yt-dlp</span><strong id="specYtdlp">—</strong></div></div>
+              <div class="settings-section"><h3>Local processing</h3><p>Video rendering is performed locally by FFmpeg. API calls leave your device only when you explicitly use an AI feature. Imported media is not uploaded by the editor pipeline.</p><div class="privacy-note">API keys are stored using Electron safeStorage when the operating system reports encryption is available.</div></div>
+            </div>
+          </div>
+          <div class="panel integration-note"><div class="notice-icon">i</div><div><strong>Integrations are enabled only when they are real.</strong><p>Google Drive OAuth, user-provided MCP servers and clippo.id publishing are not active in this build. They require official API documentation, OAuth/client configuration, permission scopes and an explicit security review.</p></div></div>
+        </section>
+
+        <section class="job-console panel" id="jobConsole"><div class="console-header"><div><span class="console-indicator"></span><strong>ACTIVITY LOG</strong><span class="console-subtitle">Visible process output</span></div><button class="text-button" id="clearLogs">Clear</button></div><div class="progress-row"><div class="progress-track"><span id="globalProgressBar"></span></div><strong id="globalProgressText">Idle</strong></div><div class="eta-row"><span id="jobEta">No active job</span><button class="button button-danger-quiet" id="cancelJob" disabled>Cancel job</button><button class="text-button" id="openOutput" hidden>Open output →</button></div><div class="console-lines" id="consoleLines"><div class="console-line muted">Klipo is ready. Activity appears here when a job starts.</div></div></section>
+      </div>
+    </main>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+</html>

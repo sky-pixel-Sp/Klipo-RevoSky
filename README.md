@@ -1,58 +1,70 @@
 # Klipo RevoSky
 
-A local-first AI clipping and video editing desktop application for Windows.
+Local-first Windows desktop video clipping and editing app. The project is under active MVP development.
 
-> Project status: foundation / MVP implementation. This repository is not yet a finished CapCut or Opus Clip replacement. External services (AI providers, platform download availability, Google Drive OAuth and clippo.id publishing) require real credentials, compatible APIs and provider/platform permission.
+## Current foundation
 
-## Goals
+- Electron desktop app with context isolation, sandboxed renderer and an allow-listed preload bridge.
+- Native multi-file media import and FFprobe inspection (duration, resolution, codecs, audio presence and size).
+- Single-clip trim and MP4 export using a real FFmpeg child process.
+- 25 subtitle/title presets rendered through FFmpeg drawtext.
+- Nine selectable FFmpeg effects: cinematic, warm, monochrome, sharpen, vignette, soft focus, mirror, bright and muted.
+- CPU encoding, detected QSV/NVENC/AMF hardware encoding, CPU-filter + hardware-encode hybrid mode, and configurable thread count.
+- FFmpeg progress protocol, elapsed/ETA display, activity log and cancellation.
+- Optional yt-dlp URL downloader for supported sites; availability depends on yt-dlp, platform policy, access and the user's rights.
+- OpenAI-compatible AI chat endpoint configuration plus a separate audio transcription endpoint.
+- API keys stored encrypted with Electron safeStorage when available.
+- English default UI with an Indonesian navigation translation.
+- Windows x64 NSIS packaging workflow and Node built-in unit tests.
 
-- Native desktop workflow for Windows using Electron.
-- Import local media and inspect it with FFmpeg/FFprobe.
-- Trim and render clips offline with FFmpeg.
-- CPU rendering, detected hardware encoders, and CPU-filter + hardware-encode hybrid mode.
-- 20+ real FFmpeg-backed caption style presets.
-- Transparent render job progress, logs and cancellation.
-- Optional yt-dlp integration for URLs supported by yt-dlp, subject to platform terms, rights and authentication.
-- OpenAI-compatible chat provider configuration plus a separate transcription endpoint configuration.
-- English default UI; Indonesian translation included.
+## Quick start on Windows
 
-## Requirements
+Requirements: Windows 10/11 x64, Node.js 20.19+ (Node 22 LTS recommended), and 5 GB+ free disk space for build/dependency and temporary media files.
 
-- Windows 10/11 x64.
-- Node.js 20.19+ (Node 22 LTS recommended).
-- FFmpeg and FFprobe (the app can use ffmpeg-static / ffprobe-static packages).
-- Optional: yt-dlp on PATH for supported video URLs.
-- Recommended for this MVP: 8 GB RAM, Intel Core i5-class CPU, SSD and adequate free disk space.
+    git clone https://github.com/sky-pixel-Sp/Klipo-RevoSky.git
+    cd Klipo-RevoSky
+    npm install
+    npm test
+    npm run dev
 
-## Development
+Build the installer with: npm run dist:win
 
-Install dependencies with npm install, then run npm run dev.
-Run tests with npm test.
-Create a Windows installer with npm run dist:win.
-The Windows build is also configured in GitHub Actions. See docs/BUILD.md.
+See docs/BUILD.md for Windows instructions and GitHub Actions artifact details.
 
-## Current implementation boundaries
+## Hardware guidance
 
-| Capability | Status in this foundation |
+For an 8 GB RAM Intel Core i5-U laptop, begin with 720p or 1080x1920 output, CPU mode and 2-4 threads. Hardware encoding is shown only when the installed FFmpeg build lists a supported encoder. The driver/device must still pass a real render. CPU mode is the fallback. Hybrid means CPU-side filters plus GPU video encoding; it does not mean every filter is computed simultaneously by both processors.
+
+## Implemented vs. not yet implemented
+
+| Feature | Status |
 |---|---|
-| Local file import / metadata | Implemented in desktop main process |
-| Trim and export MP4 | Implemented through FFmpeg |
-| 20+ caption styles | Implemented as FFmpeg drawtext presets |
-| CPU / hardware encoder selection | Encoder discovery + guarded selection |
-| CPU threads | Configurable and clamped to available logical CPUs |
-| Progress / logs / cancel | Implemented for FFmpeg render jobs |
-| URL downloads | Optional yt-dlp integration; source/platform restrictions apply |
-| AI chat | Configurable OpenAI-compatible chat endpoint |
-| AI transcription | Configurable transcription endpoint; provider must support audio transcription |
-| Google Drive | Not enabled until OAuth app credentials and scopes are configured |
-| MCP | Planned adapter; no fabricated relay URLs or unauthenticated endpoints |
-| clippo.id login/publishing | Not enabled without official API documentation and authorization |
-| Social search / automatic trend discovery | Planned; must use permitted APIs or public sources |
+| Local media import / preview / metadata | Implemented in this foundation |
+| Single clip trim and MP4 render | Implemented |
+| 25 FFmpeg caption presets | Implemented |
+| Nine FFmpeg video effects | Implemented |
+| CPU threads / QSV / NVENC / AMF discovery | Implemented with runtime availability checks |
+| Render progress, ETA, log and cancel | Implemented for active FFmpeg jobs |
+| URL downloader | yt-dlp integration; install separately and follow site rules |
+| AI chat | OpenAI-compatible chat completions endpoint |
+| AI transcription | Compatible /audio/transcriptions endpoint; video audio is extracted locally first |
+| Multi-track timeline, transitions and keyframes | Planned |
+| Automatic highlight detection / AI edit execution | Planned; assistant currently provides plans, not automatic timeline mutations |
+| Google Drive OAuth | Planned; requires OAuth app setup and scopes |
+| MCP server connection / random relay URL | Not enabled; must be built with explicit trust and permission handling |
+| clippo.id login / publishing | Not enabled until official API docs and authorization are available |
+| Cross-platform social search | Planned; requires permitted platform APIs or sources |
 
-## Security
+## Security and content rights
 
-API keys are encrypted with Electron safeStorage when available. Do not commit secrets, cookies, OAuth tokens, downloaded media or render outputs. Never use the app to bypass access controls or download content without permission.
+Renderer JavaScript receives no Node.js access and never receives API keys. File operations and child processes run in the Electron main process. URL downloads must only be used for content the user is authorized to save. The app does not attempt to bypass DRM, paywalls, private-content access controls or platform restrictions. Never commit API keys, account cookies or private media.
+
+## Project documents
+
+- docs/ARCHITECTURE.md — process boundaries and media pipeline.
+- docs/BUILD.md — local development and Windows installer.
+- docs/ROADMAP.md — milestones and external integrations.
 
 ## License
 
-MIT for this repository's original source code. Third-party tools and services retain their own licenses and terms.
+MIT for original repository source code. Third-party binaries, services and platforms retain their own licenses and terms.
