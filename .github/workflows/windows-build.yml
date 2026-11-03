@@ -60,7 +60,7 @@ jobs:
             throw "Installed app did not write its smoke-test result file. Exit code: $appExitCode. Startup: $diagnostic. STDOUT: $stdout. STDERR: $stderr"
           }
           $smoke = Get-Content $resultFile -Raw | ConvertFrom-Json
-          if ($appExitCode -ne 0 -or $smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio) {
+          if ($appExitCode -ne 0 -or $smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio -or -not $smoke.downloaderAvailable) {
             throw "Installed app smoke test failed (exit $appExitCode): $(Get-Content $resultFile -Raw)"
           }
           Get-Content $resultFile
