@@ -62,7 +62,7 @@ test("FFmpeg end-to-end renders synthetic audio/video with every effect and capt
       const outputPath = path.join(directory, "effect-" + effectId + ".mp4");
       const plan = buildRenderArgs({
         inputPath, outputPath, startSeconds: 0, durationSeconds: 0.7,
-        width: 320, height: 180, fps: 15, threads: 1,
+        width: 320, height: 240, fps: 15, threads: 1,
         mode: "cpu", effects: [effectId]
       }, { logicalCpus: 2 });
       run(ffmpegPath, plan.args, "Effect render: " + effectId);
@@ -88,7 +88,7 @@ test("FFmpeg end-to-end renders synthetic audio/video with every effect and capt
     const video = metadata.streams.find((stream) => stream.codec_type === "video");
     const audio = metadata.streams.find((stream) => stream.codec_type === "audio");
     assert.equal(video.width, 320);
-    assert.equal(video.height, 180);
+    assert.equal(video.height, 240);
     assert.ok(audio, "rendered output must retain source audio");
     assert.ok(Number(metadata.format.duration) >= 0.5);
   } finally {
