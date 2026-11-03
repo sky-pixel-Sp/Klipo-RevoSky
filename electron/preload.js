@@ -17,6 +17,7 @@ function subscribe(channel, callback) {
 contextBridge.exposeInMainWorld("klipo", Object.freeze({
   getAppInfo: () => ipcRenderer.invoke("app:info"),
   importMedia: () => ipcRenderer.invoke("media:import"),
+  inspectDownloaded: (filePath) => ipcRenderer.invoke("media:inspect-downloaded", filePath),
   startRender: (options) => ipcRenderer.invoke("render:start", options),
   cancelJob: () => ipcRenderer.invoke("job:cancel"),
   startDownload: (url) => ipcRenderer.invoke("download:start", url),
