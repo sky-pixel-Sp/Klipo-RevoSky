@@ -43,7 +43,7 @@ test("FFmpeg end-to-end renders synthetic audio/video with every effect and capt
   assert.ok(ffprobePath && fs.existsSync(ffprobePath), "ffprobe-static binary must exist");
   assert.equal(Object.keys(EFFECT_FILTERS).length, 9, "expected all nine effect definitions");
 
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "klipo-render-e2e-"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "klipo render, [e2e]-"));
   try {
     const inputPath = path.join(directory, "fixture.mp4");
     run(ffmpegPath, [
