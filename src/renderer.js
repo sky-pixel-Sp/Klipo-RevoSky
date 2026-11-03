@@ -176,7 +176,7 @@
   function updateTranscriptionSource() {
     $("#transcribeSource").textContent = state.selected ? state.selected.name : "No media selected";
     $("#transcribeButton").disabled = !state.selected;
-    $("#findHighlightsButton").disabled = !state.selected || !state.selected.hasAudio;
+    $("#findHighlightsButton").disabled = !state.selected || !state.selected.hasAudio || !state.selected.width || !state.selected.height;
     $("#highlightStatus").textContent = !state.selected
       ? "Import and select a video with audio first."
       : state.selected.hasAudio
@@ -372,7 +372,7 @@
       $("#highlightStatus").textContent = error.message;
       logLine("AI highlight analysis failed: " + error.message, "error");
     } finally {
-      button.disabled = !state.selected || !state.selected.hasAudio;
+      button.disabled = !state.selected || !state.selected.hasAudio || !state.selected.width || !state.selected.height;
       button.textContent = "Find highlights in selected media";
     }
   }
