@@ -347,9 +347,9 @@
       apply.textContent = "Use this clip range in Editor →";
       apply.addEventListener("click", () => {
         if (!state.selected) return;
+        setPage("editor");
         $("#startSeconds").value = item.startSeconds.toFixed(1);
         $("#durationSeconds").value = item.durationSeconds.toFixed(1);
-        setPage("editor");
         logLine("Applied AI highlight range: " + title.textContent + " (" + time.textContent + "). Review it before exporting.");
       });
       card.append(heading, reason, apply);
