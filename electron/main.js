@@ -9,6 +9,7 @@ const { pathToFileURL } = require("node:url");
 const { buildRenderArgs } = require("../src/core/render-plan");
 const { runCapture } = require("./process-utils");
 const { parseHighlightPayload } = require("../src/core/highlights");
+const { resolvePackagedBinaryPath } = require("./binary-path");
 
 let mainWindow = null;
 let activeJob = null;
@@ -22,9 +23,10 @@ const ffprobePath = resolveBinary(() => require("ffprobe-static").path, "ffprobe
 function resolveBinary(loader, command) {
   try {
     const candidate = loader();
-    if (candidate && fs.existsSync(candidate)) return candidate;
-  } catch (_error) {}
-  return command;
+    return resolvePackagedBinaryPath(candidate) || command;
+  } catch (_error) {
+    return command;
+  }
 }
 
 function send(channel, payload) {
