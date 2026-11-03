@@ -21,6 +21,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Check JavaScript syntax
+        run: npm run check
       - name: Run tests
         run: npm test
       - name: Build Windows installer
