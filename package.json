@@ -4,18 +4,56 @@
   "private": false,
   "description": "Local-first desktop AI clipping and video editing for Windows",
   "main": "electron/main.js",
-  "engines": { "node": ">=20.19.0" },
-  "scripts": { "dev": "electron .", "start": "electron .", "test": "node --test", "dist:win": "electron-builder --win nsis", "pack:win": "electron-builder --win dir" },
-  "dependencies": { "ffmpeg-static": "^5.2.0", "ffprobe-static": "^3.1.0" },
-  "devDependencies": { "electron": "^35.0.0", "electron-builder": "^26.0.12" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "test": "node --test",
+    "dist:win": "electron-builder --win nsis",
+    "pack:win": "electron-builder --win dir"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.1"
+  },
   "build": {
     "appId": "com.revosky.klipo",
     "productName": "Klipo RevoSky",
     "asar": true,
-    "asarUnpack": ["node_modules/ffmpeg-static/**/*", "node_modules/ffprobe-static/**/*"],
-    "files": ["electron/**/*", "src/**/*", "package.json"],
-    "directories": { "output": "release" },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "artifactName": "Klipo-RevoSky-Setup-${version}.${ext}" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true }
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/ffprobe-static/**/*"
+    ],
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Klipo-RevoSky-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
