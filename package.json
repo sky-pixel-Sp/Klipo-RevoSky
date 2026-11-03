@@ -13,7 +13,7 @@
     "test": "node --test",
     "dist:win": "electron-builder --win nsis --publish never",
     "pack:win": "electron-builder --win dir --publish never",
-    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/process-utils.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/caption-presets.js && node --check tests/render-plan.test.js && node --check tests/process-utils.test.js && node --check tests/render-e2e.test.js"
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/process-utils.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/core/highlights.js && node --check src/caption-presets.js && node --check tests/render-plan.test.js && node --check tests/highlights.test.js && node --check tests/process-utils.test.js && node --check tests/render-e2e.test.js"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
