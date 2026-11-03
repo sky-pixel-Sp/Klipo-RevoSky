@@ -41,6 +41,15 @@ test("limits output to five suggestions and bounds display text", () => {
   assert.equal(result[0].reason.length, 240);
 });
 
+test("rejects overlapping candidate ranges", () => {
+  const result = parseHighlightPayload(JSON.stringify({ highlights: [
+    { start: 0, end: 10, title: "First" },
+    { start: 5, end: 15, title: "Overlap" },
+    { start: 15, end: 21, title: "Separate" }
+  ] }), 30);
+  assert.deepEqual(result.map((item) => item.title), ["First", "Separate"]);
+});
+
 test("rejects malformed or empty model output", () => {
   assert.throws(() => parseHighlightPayload("not json", 20), /JSON/);
   assert.throws(() => parseHighlightPayload('{"items":[]}', 20), /missing its highlights/);
