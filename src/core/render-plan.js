@@ -21,7 +21,9 @@ function clampNumber(value, fallback, min, max) {
 }
 
 function escapeFilterPath(value) {
-  return String(value).replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+  return String(value).replace(/\\/g, "/").replace(/:/g, "\\:")
+    .replace(/'/g, "\\'").replace(/,/g, "\\,")
+    .replace(/\[/g, "\\[").replace(/\]/g, "\\]");
 }
 
 function buildRenderArgs(options, environment = {}) {
@@ -34,8 +36,8 @@ function buildRenderArgs(options, environment = {}) {
   if (!inputPath || !outputPath) throw new Error("Input and output paths are required.");
   const start = clampNumber(startSeconds, 0, 0, 86400);
   const duration = clampNumber(durationSeconds, 15, 0.1, 86400);
-  const w = Math.round(clampNumber(width, 1080, 240, 3840));
-  const h = Math.round(clampNumber(height, 1920, 240, 3840));
+  const w = Math.max(240, Math.min(3840, Math.round(clampNumber(width, 1080, 240, 3840) / 2) * 2));
+  const h = Math.max(240, Math.min(3840, Math.round(clampNumber(height, 1920, 240, 3840) / 2) * 2));
   const rate = clampNumber(fps, 30, 15, 60);
   const maxThreads = Math.max(1, Number(environment.logicalCpus) || 1);
   const threadCount = Math.round(clampNumber(threads, Math.min(4, maxThreads), 1, maxThreads));
