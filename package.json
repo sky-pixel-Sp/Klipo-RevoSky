@@ -11,8 +11,8 @@
     "dev": "electron .",
     "start": "electron .",
     "test": "node --test",
-    "dist:win": "electron-builder --win nsis",
-    "pack:win": "electron-builder --win dir",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "pack:win": "electron-builder --win dir --publish never",
     "check": "node --check electron/main.js && node --check electron/preload.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/caption-presets.js && node --check tests/render-plan.test.js"
   },
   "dependencies": {
