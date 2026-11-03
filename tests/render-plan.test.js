@@ -18,7 +18,7 @@ test("CPU render plan uses libx264 and clamps threads", () => {
   const plan = buildRenderArgs({
     inputPath: "input.mp4", outputPath: "output.mp4",
     startSeconds: 2, durationSeconds: 18, threads: 99,
-    captionText: "Hello world", captionStyle: "bold-outline",
+    captionText: "Hello world", captionStyle: "bold-outline", captionFilePath: "captions.txt",
     effects: ["cinematic", "vignette"]
   }, { logicalCpus: 8 });
   assert.equal(plan.codec, "libx264");
