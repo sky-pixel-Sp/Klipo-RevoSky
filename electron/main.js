@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 const { buildRenderArgs } = require("../src/core/render-plan");
+const { runCapture } = require("./process-utils");
 
 let mainWindow = null;
 let activeJob = null;
@@ -30,41 +31,6 @@ function send(channel, payload) {
 
 function logJob(message, level = "info") {
   send("job:log", { message: String(message).slice(0, 1200), level, at: new Date().toISOString() });
-}
-
-function runCapture(command, args, timeoutMs = 12000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true, shell: false });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => child.kill(), timeoutMs);
-    let downloaderBuffer = "";
-  const handleDownloaderOutput = (chunk) => {
-    downloaderBuffer += chunk.toString();
-    const lines = downloaderBuffer.split(/\r?\n/);
-    downloaderBuffer = lines.pop() || "";
-    for (const line of lines) {
-      if (!line) continue;
-      if (line.startsWith("[download]")) {
-        const match = line.match(/([\d.]+)%/);
-        if (match) send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
-      }
-      if (path.isAbsolute(line.trim())) lastPath = line.trim();
-      logJob(line, "detail");
-    }
-  };
-  child.stdout.on("data", handleDownloaderOutput);
-  child.stderr.on("data", handleDownloaderOutput);
-  child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve({ stdout, stderr });
-      else reject(new Error((stderr || "Command failed with code " + code).trim().slice(-1600)));
-    });
-  });
 }
 
 function getAvailableEncoders() {
@@ -335,12 +301,18 @@ function startRender(options) {
       if (job.captionFilePath) fs.promises.unlink(job.captionFilePath).catch(() => {});
       const exists = fs.existsSync(output.filePath);
       const size = exists ? fs.statSync(output.filePath).size : 0;
+      if (job.canceled) {
+        if (exists) fs.promises.unlink(output.filePath).catch(() => {});
+        logJob("Render canceled. Partial output was discarded.", "warning");
+        send("job:update", { kind: "render", status: "canceled" });
+        return;
+      }
       if (!error && code === 0 && size > 0) {
         completedOutputPaths.add(path.resolve(output.filePath));
         logJob("Export complete: " + (size / 1048576).toFixed(2) + " MB");
         send("job:update", { kind: "render", status: "complete", percent: 100, outputPath: output.filePath, sizeBytes: size });
       } else {
-        if (exists && size === 0) fs.promises.unlink(output.filePath).catch(() => {});
+        if (exists) fs.promises.unlink(output.filePath).catch(() => {});
         logJob(error ? error.message : "Render did not produce an output file.", "error");
         send("job:update", { kind: "render", status: "error", error: error ? error.message : "Render failed." });
       }
@@ -371,26 +343,42 @@ async function startDownload(rawUrl) {
   activeJob = { process: child, kind: "download" };
   let lastPath = "";
   send("job:update", { kind: "download", status: "running", percent: 0 });
-  child.stdout.on("data", (chunk) => {
-    for (const line of chunk.toString().split(/\r?\n/)) {
-      if (!line) continue;
-      if (line.startsWith("[download]")) {
-        const match = line.match(/([\d.]+)%/);
-        if (match) send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
-      }
-      if (path.isAbsolute(line.trim())) lastPath = line.trim();
-      logJob(line, "detail");
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+  const handleDownloadLine = (line, source) => {
+    if (!line) return;
+    if (line.startsWith("[download]")) {
+      const match = line.match(/([\d.]+)%/);
+      if (match) send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
     }
-  });
-  child.stderr.on("data", (chunk) => {
-    for (const line of chunk.toString().split(/\r?\n/).filter(Boolean).slice(-8)) logJob(line, "detail");
-  });
+    if (source === "stdout" && path.isAbsolute(line.trim())) lastPath = line.trim();
+    logJob(line, "detail");
+  };
+  const attachDownloadStream = (stream, source) => {
+    let buffer = "";
+    stream.on("data", (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
+      for (const line of lines) handleDownloadLine(line, source);
+    });
+    stream.on("end", () => {
+      if (buffer) handleDownloadLine(buffer, source);
+    });
+  };
+  attachDownloadStream(child.stdout, "stdout");
+  attachDownloadStream(child.stderr, "stderr");
   child.on("error", (error) => {
     activeJob = null;
     send("job:update", { kind: "download", status: "error", error: error.message });
   });
   child.on("close", (code) => {
-    activeJob = null;
+    const wasCanceled = Boolean(activeJob && activeJob.process === child && activeJob.canceled);
+    if (activeJob && activeJob.process === child) activeJob = null;
+    if (wasCanceled) {
+      send("job:update", { kind: "download", status: "canceled" });
+      return;
+    }
     if (code === 0) {
       if (lastPath && fs.existsSync(lastPath)) {
         allowedMediaPaths.add(path.resolve(lastPath));
@@ -442,11 +430,13 @@ function registerHandlers() {
   ipcMain.handle("job:cancel", () => {
     if (!activeJob) return { canceled: false };
     const job = activeJob;
-    activeJob = null;
+    job.canceled = true;
     try { job.process.kill("SIGTERM"); } catch (_error) {}
     if (job.captionFilePath) fs.promises.unlink(job.captionFilePath).catch(() => {});
-    logJob("Job canceled by user.", "warning");
-    send("job:update", { kind: job.kind, status: "canceled" });
+    logJob("Cancellation requested by user.", "warning");
+    if (job.kind === "download") {
+      return { canceled: true };
+    }
     return { canceled: true };
   });
   ipcMain.handle("download:start", (_event, url) => startDownload(url));
