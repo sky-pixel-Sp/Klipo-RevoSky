@@ -12,7 +12,8 @@
     "start": "electron .",
     "test": "node --test",
     "dist:win": "electron-builder --win nsis",
-    "pack:win": "electron-builder --win dir"
+    "pack:win": "electron-builder --win dir",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check src/renderer.js && node --check src/core/render-plan.js && node --check src/caption-presets.js && node --check tests/render-plan.test.js"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
