@@ -523,9 +523,108 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 
-app.whenReady().then(() => {
+
+const installedSmokeTest = process.argv.includes("--klipo-smoke-test");
+if (installedSmokeTest) app.disableHardwareAcceleration();
+
+async function runInstalledSmokeTest() {
+  let smokeWindow = null;
+  const directory = path.join(app.getPath("temp"), "klipo-installed-smoke-" + process.pid);
+  await fs.promises.mkdir(directory, { recursive: true });
+  try {
+    const info = getAppInfo();
+    if (!info.ffmpegAvailable || !info.ffprobeAvailable) {
+      throw new Error("Packaged FFmpeg or FFprobe binary is unavailable.");
+    }
+
+    smokeWindow = new BrowserWindow({
+      show: false,
+      width: 1200,
+      height: 800,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webSecurity: true
+      }
+    });
+    await smokeWindow.loadFile(path.join(__dirname, "..", "src", "index.html"));
+    const ui = await smokeWindow.webContents.executeJavaScript(`({
+      readyState: document.readyState,
+      title: document.title,
+      highlightButton: Boolean(document.getElementById("findHighlightsButton")),
+      highlightResults: Boolean(document.getElementById("highlightResults")),
+      secureBridge: Boolean(window.klipo && typeof window.klipo.findHighlights === "function"),
+      unrestrictedMediaUrlRemoved: !window.klipo || typeof window.klipo.mediaUrl !== "function"
+    })`);
+    if (ui.readyState !== "complete" || !ui.highlightButton || !ui.highlightResults || !ui.secureBridge || !ui.unrestrictedMediaUrlRemoved) {
+      throw new Error("Installed renderer smoke test failed: " + JSON.stringify(ui));
+    }
+
+    const inputPath = path.join(directory, "smoke-input.mp4");
+    const outputPath = path.join(directory, "smoke-output.mp4");
+    const captionPath = path.join(directory, "smoke-caption.txt");
+    await fs.promises.writeFile(captionPath, "KLIPO INSTALLED SMOKE TEST", "utf8");
+    await runCapture(ffmpegPath, [
+      "-hide_banner", "-y",
+      "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15:duration=1.2",
+      "-f", "lavfi", "-i", "sine=frequency=997:sample_rate=44100:duration=1.2",
+      "-shortest", "-c:v", "libx264", "-preset", "ultrafast",
+      "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "64k", inputPath
+    ], 60000);
+
+    const plan = buildRenderArgs({
+      inputPath,
+      outputPath,
+      captionFilePath: captionPath,
+      captionText: "KLIPO INSTALLED SMOKE TEST",
+      captionStyle: "classic",
+      startSeconds: 0,
+      durationSeconds: 1,
+      width: 320,
+      height: 240,
+      fps: 15,
+      threads: 1,
+      mode: "cpu",
+      effects: ["cinematic", "vignette"]
+    }, { logicalCpus: Math.max(1, os.cpus().length) });
+    await runCapture(ffmpegPath, plan.args, 90000);
+    const rendered = await probeMedia(outputPath);
+    if (rendered.width !== 320 || rendered.height !== 240 || !rendered.hasAudio || rendered.sizeBytes < 1000) {
+      throw new Error("Packaged FFmpeg render verification failed: " + JSON.stringify(rendered));
+    }
+
+    console.log("KLIPO_INSTALLED_SMOKE_RESULT=" + JSON.stringify({
+      status: "passed",
+      ui,
+      ffmpegAvailable: info.ffmpegAvailable,
+      ffprobeAvailable: info.ffprobeAvailable,
+      encoder: plan.codec,
+      width: rendered.width,
+      height: rendered.height,
+      hasAudio: rendered.hasAudio,
+      outputSizeBytes: rendered.sizeBytes
+    }));
+  } finally {
+    if (smokeWindow && !smokeWindow.isDestroyed()) smokeWindow.destroy();
+    await fs.promises.rm(directory, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+app.whenReady().then(async () => {
   app.setAppUserModelId("com.revosky.klipo");
   registerHandlers();
+  if (installedSmokeTest) {
+    try {
+      await runInstalledSmokeTest();
+      app.exit(0);
+    } catch (error) {
+      console.error("KLIPO_INSTALLED_SMOKE_FAILED=" + (error.stack || error.message));
+      app.exit(1);
+    }
+    return;
+  }
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
