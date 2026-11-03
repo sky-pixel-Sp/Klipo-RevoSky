@@ -84,3 +84,19 @@ test("classifies forbidden provider access as an authentication or permission pr
   assert.equal(issue.kind, "authentication");
   assert.equal(issue.retryable, false);
 });
+
+test("does not send fallback requests after an authentication failure", async () => {
+  let calls = 0;
+  await assert.rejects(() => chatCompletionWithFallback({
+    baseUrl: "https://example.test/v1",
+    apiKey: "bad-key",
+    model: "primary/model",
+    fallbackModels: ["backup/model"],
+    messages: [{ role: "user", content: "Hi" }],
+    fetchImpl: async () => {
+      calls += 1;
+      return response(401, { error: { message: "Invalid API key" } });
+    }
+  }), /API key ditolak/);
+  assert.equal(calls, 1);
+});
