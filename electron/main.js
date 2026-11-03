@@ -663,5 +663,8 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
+  // The smoke-test mode starts with no visible window and creates a hidden
+  // verification window after app readiness. Do not auto-quit before it runs.
+  if (installedSmokeTest) return;
   if (process.platform !== "darwin") app.quit();
 });
