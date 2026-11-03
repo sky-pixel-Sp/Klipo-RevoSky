@@ -21,7 +21,7 @@ async function main() {
     throw new Error("Downloaded yt-dlp file failed basic Windows executable validation.");
   }
 
-  const temporaryPath = outputPath + ".download";
+  const temporaryPath = outputPath + ".download.exe";
   await fs.writeFile(temporaryPath, bytes);
   const check = spawnSync(temporaryPath, ["--version"], {
     encoding: "utf8",
