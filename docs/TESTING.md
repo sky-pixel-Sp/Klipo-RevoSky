@@ -14,6 +14,7 @@ The test suite covers:
 - Render-plan validation, CPU thread clamping, unsupported GPU encoder rejection, filter-path escaping and even output dimensions for yuv420p.
 - AI highlight response parsing, timestamp range validation, overlap rejection, five-result limit and display-text bounds.
 - A real FFmpeg end-to-end smoke test. It generates a synthetic test video with an audio track, renders each of the nine video effects and all 25 caption presets, then uses FFprobe to verify the resulting MP4 dimensions, duration and retained audio.
+- A post-install Windows smoke test. CI silently installs the generated NSIS installer, launches the installed Electron app in a dedicated smoke-test mode, verifies the renderer and preload bridge, then creates and renders a synthetic video through the packaged FFmpeg/FFprobe binaries and verifies audio and video metadata.
 
 The FFmpeg smoke test intentionally uses a generated fixture. It does not require a private video or an external download.
 
