@@ -176,6 +176,12 @@
   function updateTranscriptionSource() {
     $("#transcribeSource").textContent = state.selected ? state.selected.name : "No media selected";
     $("#transcribeButton").disabled = !state.selected;
+    $("#findHighlightsButton").disabled = !state.selected || !state.selected.hasAudio;
+    $("#highlightStatus").textContent = !state.selected
+      ? "Import and select a video with audio first."
+      : state.selected.hasAudio
+        ? "Ready to analyze " + state.selected.name + "."
+        : "This media has no audio track.";
   }
 
   function populateCaptionStyles() {
@@ -313,6 +319,64 @@
     finally { $("#transcribeButton").disabled = false; $("#transcribeButton").textContent = "Transcribe selected file"; }
   }
 
+  function renderHighlightResults(highlights) {
+    const container = $("#highlightResults");
+    container.replaceChildren();
+    if (!highlights.length) {
+      const empty = document.createElement("div");
+      empty.className = "highlight-empty";
+      empty.textContent = "No valid highlights were returned.";
+      container.append(empty);
+      return;
+    }
+
+    highlights.forEach((item, index) => {
+      const card = document.createElement("article");
+      card.className = "highlight-card";
+      const heading = document.createElement("div");
+      heading.className = "highlight-card-heading";
+      const title = document.createElement("strong");
+      title.textContent = item.title || ("Highlight " + (index + 1));
+      const time = document.createElement("span");
+      time.textContent = formatTime(item.startSeconds) + " – " + formatTime(item.endSeconds);
+      heading.append(title, time);
+      const reason = document.createElement("p");
+      reason.textContent = item.reason || "Suggested from the timestamped transcript.";
+      const apply = document.createElement("button");
+      apply.className = "text-button";
+      apply.textContent = "Use this clip range in Editor →";
+      apply.addEventListener("click", () => {
+        if (!state.selected) return;
+        $("#startSeconds").value = item.startSeconds.toFixed(1);
+        $("#durationSeconds").value = item.durationSeconds.toFixed(1);
+        setPage("editor");
+        logLine("Applied AI highlight range: " + title.textContent + " (" + time.textContent + "). Review it before exporting.");
+      });
+      card.append(heading, reason, apply);
+      container.append(card);
+    });
+  }
+
+  async function findHighlights() {
+    if (!state.selected) return;
+    const button = $("#findHighlightsButton");
+    button.disabled = true;
+    button.textContent = "Analyzing transcript…";
+    $("#highlightStatus").textContent = "Extracting audio, requesting timestamps and ranking moments…";
+    try {
+      const highlights = await window.klipo.findHighlights(state.selected.path);
+      renderHighlightResults(highlights);
+      $("#highlightStatus").textContent = highlights.length + " clip suggestions ready. Review each range before export.";
+      logLine("AI highlight analysis returned " + highlights.length + " validated clip suggestions.");
+    } catch (error) {
+      $("#highlightStatus").textContent = error.message;
+      logLine("AI highlight analysis failed: " + error.message, "error");
+    } finally {
+      button.disabled = !state.selected || !state.selected.hasAudio;
+      button.textContent = "Find highlights in selected media";
+    }
+  }
+
   function appendChat(role, content) {
     const row = document.createElement("div");
     row.className = role === "user" ? "user-message" : "assistant-message";
@@ -440,6 +504,7 @@
     $("#exportButton").addEventListener("click", exportVideo);
     $("#downloadButton").addEventListener("click", downloadFromUrl);
     $("#transcribeButton").addEventListener("click", transcribeSelected);
+    $("#findHighlightsButton").addEventListener("click", findHighlights);
     $("#useTranscript").addEventListener("click", () => {
       $("#captionText").value = $("#transcriptOutput").value;
       updateCaptionPreview();
