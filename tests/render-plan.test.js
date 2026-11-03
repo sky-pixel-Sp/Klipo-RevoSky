@@ -54,4 +54,19 @@ test("unsupported effects are rejected rather than ignored", () => {
 test("clamp and Windows filter path escaping are deterministic", () => {
   assert.equal(clampNumber(100, 2, 1, 10), 10);
   assert.equal(escapeFilterPath("C:\\Media\\clip.mp4"), "C\\:/Media/clip.mp4");
+  assert.equal(
+    escapeFilterPath("C:\\Media, Clips\\[cut].mp4"),
+    "C\\:/Media\\, Clips/\\[cut\\].mp4"
+  );
+});
+
+test("render dimensions are rounded to even values for yuv420p", () => {
+  const plan = buildRenderArgs({
+    inputPath: "input.mp4", outputPath: "output.mp4",
+    durationSeconds: 4, width: 321, height: 241
+  });
+  const scale = plan.filters[0];
+  const crop = plan.filters[1];
+  assert.equal(scale, "scale=322:242:force_original_aspect_ratio=increase");
+  assert.equal(crop, "crop=322:242");
 });
