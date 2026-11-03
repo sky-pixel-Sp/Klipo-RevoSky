@@ -1,48 +1,42 @@
-# Product roadmap
+# Product roadmap — Klipo RevoSky
 
-## Milestone 0 — Desktop foundation (current)
+## 0.2 — Usability rebuild
 
-- Electron desktop shell with context isolation and a narrow preload API.
-- Local media import and FFprobe metadata.
-- FFmpeg trim/export pipeline, caption filters, encoder discovery and progress events.
-- 25 FFmpeg drawtext caption presets.
-- Optional yt-dlp command integration.
-- OpenAI-compatible chat and configurable audio transcription endpoints.
-- AI highlight suggestions from timestamped transcription, with validated ranges and user approval before export.
-- Windows installer workflow and automated unit tests.
+- Indonesian-first guided desktop interface and clear empty/loading/error/success states.
+- Stable editor state across page navigation.
+- Synchronized numeric and slider trim controls.
+- Real portrait, landscape and square output profiles.
+- Checkbox effect selection instead of an opaque multi-select.
+- Conservative RAM-aware render thread defaults.
+- Provider model discovery, explicitly selected fallback models and typed quota/auth/model errors.
+- Bundled Windows yt-dlp with installed-app smoke verification.
+- Main-process validation and FFprobe verification before an export is reported as complete.
 
-## Milestone 1 — Editing workflow
+## 0.3 — Editing depth
 
-- Multi-clip project format, track model, split/trim/move operations and undo/redo.
-- Preview timeline with proxy generation and waveform cache.
-- Per-clip transitions, color adjustments, audio ducking and keyframes.
-- Subtitle segmentation, word timing and SRT/VTT import/export.
-- Render queue with resumable job metadata and reliable ETA based on measured throughput.
+- Project save/restore with media relinking and explicit missing-file handling.
+- Multi-clip timeline model with split, trim, reorder, undo/redo and autosave.
+- Preview proxies and waveform caching for large source files.
+- Subtitle segments, SRT/VTT import/export and word-level timing when supported by the selected transcription provider.
+- Render queue with measured ETA, resumable metadata and resource limits.
 
-## Milestone 2 — AI production assistant
+## 0.4 — Production assistant
 
-- Provider capability registry (chat, vision, transcription, embeddings) rather than assuming every model supports every modality.
-- Shot/scene analysis, highlight scoring, hook suggestions and editable clip suggestions.
-- Human-readable action plan, approval gates, audit log and reversible edits.
-- Local Whisper/faster-whisper optional install profile for capable machines.
+- Provider capability discovery (chat, transcription, vision) without assuming all models support every modality.
+- Reversible AI edit plans with user approval and audit history.
+- Local or remote transcription choices with clear system requirements.
+- Scene/shot analysis only through verified model capabilities.
 
-## Milestone 3 — Integrations
+## Later integrations
 
-- Google Drive OAuth with least-privilege scopes and explicit user selection of files.
-- MCP client configuration for user-supplied trusted servers; show tool permissions and require approval for writes.
-- Platform reference search through permitted public APIs or documented endpoints.
-- clippo.id publishing only after official API docs, OAuth flow and terms are confirmed.
+- Google Drive OAuth with least-privilege scopes.
+- MCP client with server identity, tool permissions and write confirmation.
+- clippo.id publishing only after official API and authorization support are documented.
 
-## Milestone 4 — Quality and distribution
+## Quality gates
 
-- GPU compatibility matrix and device-specific render tests.
-- Windows code signing, crash reporting opt-in, auto-update and release channel.
-- Accessibility, full localization, installer/uninstaller testing and media-format regression suite.
-
-## Non-negotiable product rules
-
-- No fake buttons, placeholder assets or simulated job progress.
-- Never expose API keys to renderer JavaScript or logs.
-- Never claim a provider supports audio/video inputs until verified.
-- Never bypass DRM, paywalls, private-content permissions or platform access controls.
-- Show a feature as unavailable when a required credential, API or hardware capability is missing.
+- No fake or inactive buttons presented as working features.
+- No successful job state until output verification passes.
+- No AI quota retry loop that burns the same exhausted daily free quota.
+- No API keys exposed to renderer JavaScript or logs.
+- Feature availability must match real provider, platform and hardware capabilities.
