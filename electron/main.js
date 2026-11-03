@@ -38,9 +38,24 @@ function runCapture(command, args, timeoutMs = 12000) {
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => child.kill(), timeoutMs);
-    child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
-    child.on("error", (error) => {
+    let downloaderBuffer = "";
+  const handleDownloaderOutput = (chunk) => {
+    downloaderBuffer += chunk.toString();
+    const lines = downloaderBuffer.split(/\r?\n/);
+    downloaderBuffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line) continue;
+      if (line.startsWith("[download]")) {
+        const match = line.match(/([\d.]+)%/);
+        if (match) send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
+      }
+      if (path.isAbsolute(line.trim())) lastPath = line.trim();
+      logJob(line, "detail");
+    }
+  };
+  child.stdout.on("data", handleDownloaderOutput);
+  child.stderr.on("data", handleDownloaderOutput);
+  child.on("error", (error) => {
       clearTimeout(timer);
       reject(error);
     });
@@ -333,7 +348,7 @@ function startRender(options) {
   });
 }
 
-async function startDownload(rawUrl) {
+async async function startDownload(rawUrl) {
   if (activeJob) return { started: false, error: "Another media job is already running." };
   let url;
   try {
@@ -382,7 +397,7 @@ async function startDownload(rawUrl) {
         completedOutputPaths.add(path.resolve(lastPath));
       }
       logJob("Download finished." + (lastPath ? " Saved: " + lastPath : ""));
-      send("job:update", { kind: "download", status: "complete", percent: 100, outputPath: lastPath || folder.filePaths[0] });
+      send("job:update", { kind: "download", status: "complete", percent: 100, outputPath: lastPath || "" });
     } else {
       send("job:update", { kind: "download", status: "error", error: "yt-dlp exited with code " + code });
     }
@@ -413,6 +428,15 @@ function registerHandlers() {
       }
     }
     return items;
+  });
+  ipcMain.handle("media:inspect-downloaded", async (_event, filePath) => {
+    const resolved = path.resolve(String(filePath || ""));
+    if (!completedOutputPaths.has(resolved) || !fs.existsSync(resolved)) {
+      throw new Error("This file was not produced by a completed Klipo download.");
+    }
+    const item = await probeMedia(resolved);
+    allowedMediaPaths.add(resolved);
+    return item;
   });
   ipcMain.handle("render:start", (_event, options) => startRender(options));
   ipcMain.handle("job:cancel", () => {
