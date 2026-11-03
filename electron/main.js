@@ -7,6 +7,7 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 const { buildRenderArgs } = require("../src/core/render-plan");
 const { runCapture } = require("./process-utils");
+const { parseHighlightPayload } = require("../src/core/highlights");
 
 let mainWindow = null;
 let activeJob = null;
@@ -184,7 +185,7 @@ async function callAiChat(messages) {
   return String((((payload.choices || [])[0] || {}).message || {}).content || "The provider returned no text.");
 }
 
-async function transcribeMedia(filePath) {
+async function transcribeMedia(filePath, responseFormat = "") {
   const resolvedPath = path.resolve(filePath);
   if (!allowedMediaPaths.has(resolvedPath)) throw new Error("Import this media through Klipo before requesting transcription.");
   const settings = readStoredSettings();
@@ -215,6 +216,7 @@ async function transcribeMedia(filePath) {
     const form = new FormData();
     form.append("file", new Blob([bytes], { type: "audio/mpeg" }), path.basename(uploadPath));
     form.append("model", settings.transcriptionModel);
+    if (responseFormat) form.append("response_format", responseFormat);
     const endpoint = safeEndpoint(settings.transcriptionBaseUrl) + "/audio/transcriptions";
     const response = await fetch(endpoint, {
       method: "POST",
@@ -224,10 +226,53 @@ async function transcribeMedia(filePath) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error("Transcription failed (" + response.status + "): " + ((payload.error || {}).message || response.statusText));
-    return String(payload.text || "");
+    return responseFormat === "verbose_json" ? payload : String(payload.text || "");
   } finally {
     if (temporaryAudioPath) await fs.promises.unlink(temporaryAudioPath).catch(() => {});
   }
+}
+
+async function findHighlights(filePath) {
+  const resolvedPath = path.resolve(String(filePath || ""));
+  if (!allowedMediaPaths.has(resolvedPath) || !fs.existsSync(resolvedPath)) {
+    throw new Error("Import a valid media file through Klipo before finding highlights.");
+  }
+
+  const metadata = await probeMedia(resolvedPath);
+  if (!metadata.hasAudio) throw new Error("The selected video has no audio track to analyze.");
+  const transcription = await transcribeMedia(resolvedPath, "verbose_json");
+  const sourceSegments = Array.isArray(transcription.segments) ? transcription.segments : [];
+  const compactSegments = [];
+  let characterCount = 0;
+
+  for (const segment of sourceSegments) {
+    const start = Number(segment.start);
+    const end = Number(segment.end);
+    const text = String(segment.text || "").trim().slice(0, 400);
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    if (characterCount + text.length > 18000) break;
+    compactSegments.push({ start: Math.max(0, start), end: Math.min(metadata.durationSeconds, end), text });
+    characterCount += text.length;
+    if (compactSegments.length >= 220) break;
+  }
+
+  if (!compactSegments.length) {
+    throw new Error("The transcription provider returned no timestamped segments. It must support response_format=verbose_json for AI highlights.");
+  }
+
+  logJob("Analyzing " + compactSegments.length + " timestamped transcript segments for highlights.");
+  const content = await callAiChat([
+    {
+      role: "system",
+      content: "You are a professional short-form video editor. Select the strongest self-contained moments from the supplied timestamped transcript. Do not invent events or timestamps. Return only JSON in this exact shape: {\"highlights\":[{\"start\":12.3,\"end\":31.5,\"title\":\"Short title\",\"reason\":\"Why this moment works\"}]}. Return at most five non-overlapping clips, each 2 to 60 seconds, inside the source duration. Prefer strong hooks, complete thoughts, useful information, emotional peaks, or clear punchlines. Keep the spoken context intact."
+    },
+    {
+      role: "user",
+      content: "Source duration: " + metadata.durationSeconds.toFixed(2) + " seconds. Choose highlights from these timestamped transcript segments:\n" + JSON.stringify(compactSegments)
+    }
+  ]);
+
+  return parseHighlightPayload(content, metadata.durationSeconds);
 }
 
 function startRender(options) {
@@ -444,6 +489,7 @@ function registerHandlers() {
   ipcMain.handle("ai:get-settings", () => publicSettings());
   ipcMain.handle("ai:chat", (_event, messages) => callAiChat(messages));
   ipcMain.handle("ai:transcribe", (_event, filePath) => transcribeMedia(String(filePath || "")));
+  ipcMain.handle("ai:highlights", (_event, filePath) => findHighlights(String(filePath || "")));
   ipcMain.handle("app:open-path", async (_event, targetPath) => {
     const value = path.resolve(String(targetPath || ""));
     if (!completedOutputPaths.has(value) || !fs.existsSync(value)) throw new Error("Only a completed Klipo output can be opened here.");
