@@ -348,7 +348,7 @@ function startRender(options) {
   });
 }
 
-async async function startDownload(rawUrl) {
+async function startDownload(rawUrl) {
   if (activeJob) return { started: false, error: "Another media job is already running." };
   let url;
   try {
