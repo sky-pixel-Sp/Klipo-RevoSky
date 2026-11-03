@@ -41,8 +41,16 @@ jobs:
           $resultFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke-result.json"
           $stdoutFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke.stdout.log"
           $stderrFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke.stderr.log"
+          Remove-Item $resultFile, "$resultFile.started", $stdoutFile, $stderrFile -Force -ErrorAction SilentlyContinue
+          $env:KLIPO_SMOKE_TEST = "1"
+          $env:KLIPO_SMOKE_RESULT_PATH = $resultFile
           $smokeArgs = "--klipo-smoke-test --klipo-smoke-result=$resultFile"
-          $appProcess = Start-Process -FilePath $appExe -ArgumentList $smokeArgs -Wait -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+          $appProcess = Start-Process -FilePath $appExe -ArgumentList $smokeArgs -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+          if (-not $appProcess.WaitForExit(180000)) {
+            Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue
+            throw "Installed app smoke test exceeded 180 seconds."
+          }
+          $appProcess.Refresh()
           $appExitCode = $appProcess.ExitCode
           if (-not (Test-Path $resultFile)) {
             $startedFile = "$resultFile.started"
