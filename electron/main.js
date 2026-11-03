@@ -249,9 +249,11 @@ async function findHighlights(filePath) {
     const start = Number(segment.start);
     const end = Number(segment.end);
     const text = String(segment.text || "").trim().slice(0, 400);
-    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    const safeStart = Math.max(0, start);
+    const safeEnd = Math.min(metadata.durationSeconds, end);
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || safeStart >= metadata.durationSeconds || safeEnd <= safeStart) continue;
     if (characterCount + text.length > 18000) break;
-    compactSegments.push({ start: Math.max(0, start), end: Math.min(metadata.durationSeconds, end), text });
+    compactSegments.push({ start: safeStart, end: safeEnd, text });
     characterCount += text.length;
     if (compactSegments.length >= 220) break;
   }
