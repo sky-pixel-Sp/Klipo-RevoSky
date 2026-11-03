@@ -124,6 +124,7 @@ async function chatCompletionWithFallback(options = {}) {
         const issue = providerError(response.status, payload);
         lastError = new Error(issue.message);
         lastError.code = issue.kind;
+        lastError.retryable = issue.retryable;
         if (issue.kind === "daily_quota" || !issue.retryable || index === models.length - 1) throw lastError;
         continue;
       }
@@ -141,7 +142,7 @@ async function chatCompletionWithFallback(options = {}) {
       } else {
         lastError = error;
       }
-      if (lastError.code === "daily_quota" || index === models.length - 1 || lastError.message.startsWith("Provider menerima")) {
+      if (lastError.code === "daily_quota" || lastError.retryable === false || index === models.length - 1 || lastError.message.startsWith("Provider menerima")) {
         throw lastError;
       }
     } finally {
