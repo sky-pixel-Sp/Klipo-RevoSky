@@ -524,7 +524,7 @@ function createWindow() {
 }
 
 
-const installedSmokeTest = process.argv.includes("--klipo-smoke-test");
+const installedSmokeTest = process.env.KLIPO_SMOKE_TEST === "1" || process.argv.includes("--klipo-smoke-test") || app.commandLine.hasSwitch("klipo-smoke-test");
 if (installedSmokeTest) app.disableHardwareAcceleration();
 
 async function runInstalledSmokeTest() {
@@ -624,7 +624,15 @@ app.whenReady().then(async () => {
       await runInstalledSmokeTest();
       app.exit(0);
     } catch (error) {
-      console.error("KLIPO_INSTALLED_SMOKE_FAILED=" + (error.stack || error.message));
+      const failure = { status: "failed", error: error.stack || error.message };
+      console.error("KLIPO_INSTALLED_SMOKE_FAILED=" + failure.error);
+      if (process.env.KLIPO_SMOKE_RESULT_PATH) {
+        try {
+          await fs.promises.writeFile(process.env.KLIPO_SMOKE_RESULT_PATH, JSON.stringify(failure, null, 2), "utf8");
+        } catch (writeError) {
+          console.error("Could not write smoke-test failure report: " + writeError.message);
+        }
+      }
       app.exit(1);
     }
     return;
