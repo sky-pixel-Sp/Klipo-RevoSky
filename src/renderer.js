@@ -2,188 +2,123 @@
 
 (() => {
   const state = {
-    media: [], selected: null, appInfo: null, language: "en", page: "dashboard",
-    messages: [], job: null, lastOutputPath: ""
-  };
-  const $ = (selector) => document.querySelector(selector);
-  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
-  const formatTime = (seconds) => {
-    const value = Math.max(0, Math.floor(Number(seconds) || 0));
-    return String(Math.floor(value / 60)).padStart(2, "0") + ":" + String(value % 60).padStart(2, "0");
-  };
-  const formatBytes = (bytes) => {
-    if (!Number.isFinite(bytes) || bytes <= 0) return "—";
-    const units = ["B", "KB", "MB", "GB"];
-    let value = bytes, unit = 0;
-    while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
-    return value.toFixed(unit === 0 ? 0 : 1) + " " + units[unit];
+    media: [],
+    selectedPath: "",
+    selected: null,
+    appInfo: null,
+    page: "dashboard",
+    messages: [],
+    job: null,
+    lastOutputPath: "",
+    lastChatPrompt: "",
+    toastTimer: null
   };
 
+  const $ = (selector) => document.querySelector(selector);
+  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+  function formatTime(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainder = total % 60;
+    return (hours ? String(hours).padStart(2, "0") + ":" : "") +
+      String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
+  }
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(Number(bytes)) || Number(bytes) <= 0) return "—";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = Number(bytes);
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    return value.toFixed(unit === 0 ? 0 : 1) + " " + units[unit];
+  }
+
+  function toast(message, kind = "info") {
+    const node = $("#toast");
+    node.textContent = String(message || "");
+    node.className = "toast" + (kind === "error" ? " error" : "");
+    node.hidden = false;
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => { node.hidden = true; }, 5200);
+  }
+
   function logLine(message, level = "info") {
+    const container = $("#consoleLines");
+    if (!container) return;
     const node = document.createElement("div");
     node.className = "console-line " + level;
     const time = document.createElement("time");
     time.textContent = new Date().toLocaleTimeString();
-    const text = document.createElement("span");
-    text.textContent = String(message == null ? "" : message);
-    node.append(time, text);
-    $("#consoleLines").append(node);
-    $("#consoleLines").scrollTop = $("#consoleLines").scrollHeight;
+    const value = document.createElement("span");
+    value.textContent = String(message == null ? "" : message);
+    node.append(time, value);
+    container.append(node);
+    while (container.children.length > 120) container.firstElementChild.remove();
+    container.scrollTop = container.scrollHeight;
   }
 
   function setPage(page) {
-    state.page = page;
-    $$("[data-page-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.pagePanel === page));
-    $$(".nav-item[data-page]").forEach((item) => item.classList.toggle("active", item.dataset.page === page));
-    const labels = { dashboard: "Home", editor: "Editor", downloads: "Downloads", ai: "AI Studio", settings: "Settings" };
-    $("#pageBreadcrumb").textContent = labels[page] || "Home";
-    if (page === "editor" && state.selected) updateEditorMedia();
-    if (page === "ai") updateTranscriptionSource();
-  }
-
-  function setLanguage(language) {
-    state.language = language === "id" ? "id" : "en";
-    document.documentElement.lang = state.language;
-    $("#languageToggle").textContent = state.language === "en" ? "EN ⌄" : "ID ⌄";
-    const dict = state.language === "id"
-      ? { navHome: "Beranda", navEditor: "Editor", navDownloads: "Unduhan", navAi: "Studio AI", navSettings: "Pengaturan", importMedia: "Impor media" }
-      : { navHome: "Home", navEditor: "Editor", navDownloads: "Downloads", navAi: "AI Studio", navSettings: "Settings", importMedia: "Import media" };
-    $$("[data-i18n]").forEach((node) => { node.textContent = dict[node.dataset.i18n] || node.textContent; });
-    $("#settingsLanguage").value = state.language;
-    localStorage.setItem("klipo-language", state.language);
-  }
-
-  async function importMedia() {
-    try {
-      const items = await window.klipo.importMedia();
-      for (const item of items) {
-        if (!state.media.some((media) => media.path === item.path)) state.media.push(item);
-        if (item.error) logLine("Could not inspect " + item.name + ": " + item.error, "warning");
-      }
-      renderLibrary();
-      const firstValid = items.find((item) => !item.error);
-      if (firstValid) selectMedia(firstValid.path);
-      if (items.length) setPage("editor");
-    } catch (error) { logLine("Import failed: " + error.message, "error"); }
-  }
-
-  function selectMedia(filePath) {
-    state.selected = state.media.find((item) => item.path === filePath) || null;
-    updateEditorMedia();
-    updateTranscriptionSource();
-    renderLibrary();
-  }
-
-  function renderLibrary() {
-    const library = $("#libraryList");
-    library.replaceChildren();
-    const valid = state.media.filter((item) => !item.error);
-    if (!valid.length) {
-      const empty = document.createElement("div");
-      empty.className = "library-empty";
-      empty.textContent = state.language === "id" ? "Belum ada media" : "No imported media yet";
-      library.append(empty);
-    }
-    valid.forEach((item) => {
-      const button = document.createElement("button");
-      button.className = "library-item" + (state.selected && state.selected.path === item.path ? " selected" : "");
-      const icon = document.createElement("span");
-      icon.className = "library-file-icon";
-      icon.textContent = "▣";
-      const name = document.createElement("span");
-      name.className = "library-file-name";
-      name.textContent = item.name;
-      button.append(icon, name);
-      button.addEventListener("click", () => { selectMedia(item.path); setPage("editor"); });
-      library.append(button);
+    const allowed = new Set(["dashboard", "editor", "downloads", "ai", "settings"]);
+    state.page = allowed.has(page) ? page : "dashboard";
+    $$("[data-page-panel]").forEach((panel) => {
+      panel.classList.toggle("active", panel.dataset.pagePanel === state.page);
     });
-    const recent = $("#recentMedia");
-    recent.replaceChildren();
-    if (!valid.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      const icon = document.createElement("div");
-      icon.className = "empty-icon";
-      icon.textContent = "▧";
-      const heading = document.createElement("strong");
-      heading.textContent = "Your workspace is ready";
-      const description = document.createElement("p");
-      description.textContent = "Import a video to see its preview, duration, resolution and editing controls here.";
-      const choose = document.createElement("button");
-      choose.className = "button button-secondary";
-      choose.textContent = "Choose a media file";
-      choose.addEventListener("click", importMedia);
-      empty.append(icon, heading, description, choose);
-      recent.append(empty);
-    } else {
-      valid.slice(-6).reverse().forEach((item) => {
-        const card = document.createElement("button");
-        card.className = "recent-card";
-        const thumb = document.createElement("span");
-        thumb.className = "recent-card-thumb";
-        thumb.textContent = "▶";
-        const details = document.createElement("span");
-        details.className = "recent-card-details";
-        const name = document.createElement("strong");
-        name.textContent = item.name;
-        const meta = document.createElement("small");
-        meta.textContent = formatTime(item.durationSeconds) + " · " + item.width + " × " + item.height + " · " + formatBytes(item.sizeBytes);
-        details.append(name, meta);
-        card.append(thumb, details);
-        card.addEventListener("click", () => { selectMedia(item.path); setPage("editor"); });
-        recent.append(card);
-      });
-    }
+    $$(".nav-item[data-page]").forEach((item) => {
+      item.classList.toggle("active", item.dataset.page === state.page);
+    });
+    const labels = {
+      dashboard: "Beranda",
+      editor: "Editor video",
+      downloads: "Unduh media",
+      ai: "Studio AI",
+      settings: "Pengaturan"
+    };
+    $("#pageBreadcrumb").textContent = labels[state.page];
+    if (state.page === "editor") updateTranscriptionSource();
+    if (state.page === "ai") updateTranscriptionSource();
   }
 
-  function updateEditorMedia() {
-    const item = state.selected;
-    const video = $("#videoPreview");
-    if (!item) {
-      video.pause();
-      video.removeAttribute("src");
-      video.hidden = true;
-      $("#previewEmpty").hidden = false;
-      $("#selectedName").textContent = "No media selected";
-      $("#selectedMeta").textContent = "Import a video to begin editing";
-      $("#previewResolution").textContent = "No media selected";
-      $("#timelineDuration").textContent = "00:00";
-      $("#startSeconds").max = 0;
-      $("#durationSeconds").value = 15;
-      return;
-    }
-    $("#selectedName").textContent = item.name;
-    $("#selectedMeta").textContent = formatTime(item.durationSeconds) + " · " + item.width + " × " + item.height + " · " + formatBytes(item.sizeBytes);
-    $("#previewResolution").textContent = item.width + " × " + item.height;
-    $("#timelineDuration").textContent = formatTime(item.durationSeconds);
-    $("#startSeconds").max = Math.max(0, item.durationSeconds - 0.1);
-    $("#startSeconds").value = 0;
-    $("#durationSeconds").max = Math.max(0.1, item.durationSeconds);
-    $("#durationSeconds").value = Math.min(30, Math.max(0.1, item.durationSeconds || 15)).toFixed(1);
-    $("#transcribeSource").textContent = item.name;
-    if (item.width && item.height) {
-      video.src = item.previewUrl;
-      video.hidden = false;
-      $("#previewEmpty").hidden = true;
-      video.load();
-    } else {
-      video.hidden = true;
-      $("#previewEmpty").hidden = false;
-    }
-    updateCaptionPreview();
-  }
+  function appendChat(role, content, retryPrompt = "") {
+    const container = $("#chatMessages");
+    const row = document.createElement("div");
+    row.className = role === "user" ? "user-message" : role === "error" ? "error-message" : "assistant-message";
 
-  function updateTranscriptionSource() {
-    $("#transcribeSource").textContent = state.selected ? state.selected.name : "No media selected";
-    $("#transcribeButton").disabled = !state.selected;
-    $("#findHighlightsButton").disabled = !state.selected || !state.selected.hasAudio || !state.selected.width || !state.selected.height;
-    $("#highlightStatus").textContent = !state.selected
-      ? "Import and select a video with audio first."
-      : (!state.selected.width || !state.selected.height)
-        ? "Select a video file with audio, not an audio-only file."
-        : state.selected.hasAudio
-          ? "Ready to analyze " + state.selected.name + "."
-          : "This video has no audio track.";
+    if (role === "assistant") {
+      const avatar = document.createElement("div");
+      avatar.className = "assistant-avatar";
+      avatar.textContent = "✳";
+      row.append(avatar);
+    } else if (role === "error") {
+      const avatar = document.createElement("div");
+      avatar.className = "assistant-avatar";
+      avatar.textContent = "!";
+      row.append(avatar);
+    }
+
+    const body = document.createElement("div");
+    const heading = document.createElement("strong");
+    heading.textContent = role === "user" ? "Kamu" : role === "error" ? "Permintaan belum berhasil" : "Klipo Assistant";
+    const paragraph = document.createElement("p");
+    paragraph.textContent = String(content || "");
+    body.append(heading, paragraph);
+
+    if (role === "error" && retryPrompt) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "retry-chat";
+      retry.textContent = "Coba kirim lagi →";
+      retry.addEventListener("click", () => sendChat(retryPrompt));
+      body.append(retry);
+    }
+
+    row.append(body);
+    container.append(row);
+    container.scrollTop = container.scrollHeight;
   }
 
   function populateCaptionStyles() {
@@ -198,136 +133,420 @@
       ["lavender", "Lavender Glow"], ["orange", "Orange Punch"], ["lower-third", "Lower Third"],
       ["compact", "Compact Subtitle"]
     ];
+    const select = $("#captionStyle");
+    select.replaceChildren();
     styles.forEach(([id, label]) => {
       const option = document.createElement("option");
       option.value = id;
       option.textContent = label;
-      $("#captionStyle").append(option);
+      select.append(option);
     });
   }
 
   function updateCaptionPreview() {
-    const sample = $("#styleSample");
-    const overlay = $("#captionOverlay");
-    const value = $("#captionText").value.trim() || "Your caption preview";
-    sample.textContent = value;
-    overlay.textContent = value;
-    overlay.hidden = !$("#captionText").value.trim();
-    sample.className = "style-sample style-" + $("#captionStyle").value;
-    overlay.className = "caption-overlay style-" + $("#captionStyle").value;
+    const text = $("#captionText").value.trim();
+    const display = text || "Pratinjau caption";
+    const style = "style-" + $("#captionStyle").value;
+    $("#styleSample").textContent = display;
+    $("#styleSample").className = "style-sample " + style;
+    $("#captionOverlay").textContent = text;
+    $("#captionOverlay").className = "caption-overlay " + style;
+    $("#captionOverlay").hidden = !text || !state.selected || !state.selected.width;
+  }
+
+  function updateClipRangeControls() {
+    if (!state.selected) return;
+    const total = Math.max(0.1, Number(state.selected.durationSeconds) || 0.1);
+    const start = Math.min(Math.max(0, Number($("#startSeconds").value) || 0), Math.max(0, total - 0.1));
+    const duration = Math.min(Math.max(0.1, Number($("#durationSeconds").value) || 0.1), Math.max(0.1, total - start));
+    $("#startSeconds").max = String(Math.max(0, total - 0.1));
+    $("#durationSeconds").min = "0.1";
+    $("#durationSeconds").max = String(Math.max(0.1, total - start));
+    $("#startSeconds").value = start.toFixed(1);
+    $("#durationSeconds").value = duration.toFixed(1);
+
+    $("#trimStartSlider").max = String(Math.max(0, total - 0.1));
+    $("#trimStartSlider").value = String(start);
+    $("#trimDurationSlider").max = String(Math.max(0.1, total - start));
+    $("#trimDurationSlider").value = String(duration);
+    $("#startRangeValue").textContent = start.toFixed(1) + " s";
+    $("#durationRangeValue").textContent = duration.toFixed(1) + " s";
+  }
+
+  function updateEditorMedia(resetRange = false) {
+    const item = state.selected;
+    const video = $("#videoPreview");
+    if (!item) {
+      video.pause();
+      video.removeAttribute("src");
+      video.hidden = true;
+      $("#previewEmpty").hidden = false;
+      $("#selectedName").textContent = "Belum ada media dipilih";
+      $("#selectedMeta").textContent = "Impor video untuk mulai mengedit";
+      $("#previewResolution").textContent = "Belum ada media";
+      $("#timelineDuration").textContent = "00:00";
+      $("#captionOverlay").hidden = true;
+      $("#startSeconds").value = "0";
+      $("#durationSeconds").value = "15";
+      $("#trimStartSlider").value = "0";
+      $("#trimDurationSlider").value = "15";
+      $("#startRangeValue").textContent = "0.0 s";
+      $("#durationRangeValue").textContent = "15.0 s";
+      return;
+    }
+
+    $("#selectedName").textContent = item.name;
+    $("#selectedMeta").textContent = formatTime(item.durationSeconds) + " · " +
+      item.width + " × " + item.height + " · " + formatBytes(item.sizeBytes);
+    $("#previewResolution").textContent = item.width + " × " + item.height;
+    $("#timelineDuration").textContent = formatTime(item.durationSeconds);
+
+    if (item.width && item.height && item.previewUrl) {
+      if (video.src !== item.previewUrl) {
+        video.src = item.previewUrl;
+        video.load();
+      }
+      video.hidden = false;
+      $("#previewEmpty").hidden = true;
+    } else {
+      video.pause();
+      video.removeAttribute("src");
+      video.hidden = true;
+      $("#previewEmpty").hidden = false;
+    }
+
+    if (resetRange) {
+      $("#startSeconds").value = "0";
+      $("#durationSeconds").value = Math.min(30, Math.max(0.1, item.durationSeconds || 15)).toFixed(1);
+    }
+    updateClipRangeControls();
+    updateCaptionPreview();
+    updateTranscriptionSource();
+  }
+
+  function selectMedia(filePath) {
+    const item = state.media.find((entry) => entry.path === filePath && !entry.error);
+    if (!item) return;
+    const changed = state.selectedPath !== item.path;
+    state.selectedPath = item.path;
+    state.selected = item;
+    updateEditorMedia(changed);
+    updateTranscriptionSource();
+    renderLibrary();
+  }
+
+  function renderLibrary() {
+    const library = $("#libraryList");
+    library.replaceChildren();
+    const valid = state.media.filter((item) => !item.error);
+    $("#libraryCount").textContent = String(valid.length);
+
+    if (!valid.length) {
+      const empty = document.createElement("div");
+      empty.className = "library-empty";
+      empty.textContent = "Belum ada media. Impor video untuk memulai.";
+      library.append(empty);
+    }
+
+    valid.forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "library-item" + (state.selectedPath === item.path ? " selected" : "");
+      const icon = document.createElement("span");
+      icon.className = "library-file-icon";
+      icon.textContent = "▣";
+      const name = document.createElement("span");
+      name.className = "library-file-name";
+      name.textContent = item.name;
+      button.append(icon, name);
+      button.title = item.name;
+      button.addEventListener("click", () => {
+        selectMedia(item.path);
+        setPage("editor");
+      });
+      library.append(button);
+    });
+
+    const recent = $("#recentMedia");
+    recent.replaceChildren();
+    if (!valid.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      const icon = document.createElement("div");
+      icon.className = "empty-state-icon";
+      icon.textContent = "▧";
+      const heading = document.createElement("strong");
+      heading.textContent = "Workspace masih kosong";
+      const description = document.createElement("p");
+      description.textContent = "Impor video untuk melihat durasi, resolusi, dan kontrol editing.";
+      const choose = document.createElement("button");
+      choose.type = "button";
+      choose.className = "button button-secondary";
+      choose.textContent = "Pilih video";
+      choose.addEventListener("click", importMedia);
+      empty.append(icon, heading, description, choose);
+      recent.append(empty);
+      return;
+    }
+
+    valid.slice(-6).reverse().forEach((item) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "recent-card";
+      const thumb = document.createElement("span");
+      thumb.className = "recent-card-thumb";
+      thumb.textContent = "▶";
+      const details = document.createElement("span");
+      details.className = "recent-card-details";
+      const name = document.createElement("strong");
+      name.textContent = item.name;
+      const meta = document.createElement("small");
+      meta.textContent = formatTime(item.durationSeconds) + " · " + item.width + " × " + item.height +
+        " · " + formatBytes(item.sizeBytes);
+      details.append(name, meta);
+      card.append(thumb, details);
+      card.addEventListener("click", () => {
+        selectMedia(item.path);
+        setPage("editor");
+      });
+      recent.append(card);
+    });
+  }
+
+  async function importMedia() {
+    const buttons = ["#globalImport", "#dashboardImport", "#editorImport", "#previewImport", "#emptyImport", "#emptyImportFallback"];
+    buttons.forEach((selector) => { const node = $(selector); if (node) node.disabled = true; });
+    try {
+      const items = await window.klipo.importMedia();
+      if (!Array.isArray(items) || !items.length) return;
+      for (const item of items) {
+        const existing = state.media.findIndex((media) => media.path === item.path);
+        if (existing >= 0) state.media[existing] = item;
+        else state.media.push(item);
+        if (item.error) logLine("Gagal membaca " + item.name + ": " + item.error, "warning");
+      }
+      renderLibrary();
+      const firstValid = items.find((item) => !item.error);
+      if (firstValid) {
+        selectMedia(firstValid.path);
+        setPage("editor");
+        logLine("Media siap diedit: " + firstValid.name);
+      } else {
+        toast("File dipilih, tetapi tidak ada media yang dapat dibaca.", "error");
+      }
+    } catch (error) {
+      logLine("Impor gagal: " + error.message, "error");
+      toast("Impor media gagal: " + error.message, "error");
+    } finally {
+      buttons.forEach((selector) => { const node = $(selector); if (node) node.disabled = false; });
+    }
+  }
+
+  function updateTranscriptionSource() {
+    const item = state.selected;
+    $("#transcribeSource").textContent = item ? item.name : "Belum ada media dipilih";
+    $("#transcribeSource").classList.toggle("empty", !item);
+    $("#transcribeButton").disabled = !item || !item.hasAudio;
+    $("#findHighlightsButton").disabled = !item || !item.hasAudio || !item.width || !item.height;
+
+    if (!item) {
+      $("#highlightStatus").textContent = "Impor video dengan audio untuk memulai.";
+    } else if (!item.width || !item.height) {
+      $("#highlightStatus").textContent = "File audio saja tidak dapat dianalisis sebagai video highlight.";
+    } else if (!item.hasAudio) {
+      $("#highlightStatus").textContent = "Video ini tidak memiliki audio.";
+    } else {
+      $("#highlightStatus").textContent = "Siap menganalisis " + item.name + ".";
+    }
   }
 
   function configureHardware() {
     const info = state.appInfo;
     if (!info) return;
     const ram = formatBytes(info.totalMemoryBytes);
-    $("#deviceCpu").textContent = info.cpuModel;
-    $("#deviceMemory").textContent = ram + " RAM · " + info.logicalCpus + " logical CPUs";
-    $("#deviceEncoder").textContent = info.encoders.length ? info.encoders.join(", ") : "CPU encoder available";
-    $("#specCpu").textContent = info.cpuModel;
-    $("#specThreads").textContent = info.logicalCpus;
+    $("#deviceCpu").textContent = info.cpuModel || "CPU tidak diketahui";
+    $("#deviceMemory").textContent = ram + " RAM · " + info.logicalCpus + " logical CPU";
+    $("#deviceEncoder").textContent = info.encoders && info.encoders.length
+      ? info.encoders.join(", ") : "Encoder CPU tersedia";
+    $("#specCpu").textContent = info.cpuModel || "Unknown";
+    $("#specThreads").textContent = String(info.logicalCpus || "—");
     $("#specMemory").textContent = ram;
-    $("#specEncoders").textContent = info.encoders.join(", ") || "No hardware encoder detected";
-    $("#specFfmpeg").textContent = info.ffmpegAvailable ? "Available" : "Not found";
-    $("#specYtdlp").textContent = info.downloaderAvailable ? "Available" : "Not installed";
-    $("#ytStatus").textContent = info.downloaderAvailable ? "yt-dlp detected on this device." : "yt-dlp not installed or not in PATH.";
-    $("#ytStatusDot").classList.toggle("inactive", !info.downloaderAvailable);
+    $("#specProfile").textContent = String(info.memoryProfile || "balanced");
+    $("#specEncoders").textContent = (info.encoders || []).join(", ") || "Tidak terdeteksi";
+    $("#specFfmpeg").textContent = info.ffmpegAvailable && info.ffprobeAvailable ? "FFmpeg + FFprobe siap" : "Binary media tidak lengkap";
+    $("#specYtdlp").textContent = info.downloaderAvailable ? "Tersedia (bundled)" : "Tidak ditemukan";
+
+    const recommended = Math.max(1, Number(info.recommendedThreads) || 2);
     const threadControl = $("#cpuThreads");
-    threadControl.max = String(Math.max(1, info.logicalCpus));
-    threadControl.value = String(Math.min(4, info.logicalCpus));
+    threadControl.max = String(Math.max(1, Number(info.logicalCpus) || 1));
+    threadControl.value = String(Math.min(Number(threadControl.max), recommended));
     $("#threadValue").textContent = threadControl.value;
 
     const encoder = $("#renderEncoder");
     encoder.replaceChildren();
-    const choices = [{ value: "h264_qsv", label: "Intel Quick Sync" }, { value: "h264_nvenc", label: "NVIDIA NVENC" }, { value: "h264_amf", label: "AMD AMF" }];
-    const available = choices.filter((choice) => info.encoders.includes(choice.value));
+    const choices = [
+      ["h264_qsv", "Intel Quick Sync"],
+      ["h264_nvenc", "NVIDIA NVENC"],
+      ["h264_amf", "AMD AMF"]
+    ];
+    const available = choices.filter(([value]) => (info.encoders || []).includes(value));
     if (!available.length) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = "No supported hardware encoder detected";
+      option.textContent = "Tidak ada encoder hardware yang terdeteksi";
       encoder.append(option);
       encoder.disabled = true;
     } else {
-      available.forEach((choice) => {
+      available.forEach(([value, label]) => {
         const option = document.createElement("option");
-        option.value = choice.value;
-        option.textContent = choice.label;
+        option.value = value;
+        option.textContent = label;
         encoder.append(option);
       });
-      encoder.disabled = false;
+    }
+    updateRenderMode();
+    $("#ytStatus").textContent = info.downloaderAvailable
+      ? "yt-dlp bawaan Klipo tersedia."
+      : "yt-dlp tidak ditemukan. Instal ulang Klipo untuk memulihkannya.";
+    $("#ytStatusDot").classList.toggle("inactive", !info.downloaderAvailable);
+  }
+
+  function updateRenderMode() {
+    const hardware = $("#renderMode").value !== "cpu";
+    const hasEncoder = Boolean(state.appInfo && state.appInfo.encoders && state.appInfo.encoders.length);
+    $("#renderEncoder").disabled = !hardware || !hasEncoder;
+    $("#encoderHint").textContent = hardware
+      ? "Filter tetap berjalan di CPU; video dikodekan dengan encoder hardware. Jika render gagal, pilih CPU."
+      : "CPU adalah mode paling kompatibel. Jumlah thread disarankan dari RAM perangkat.";
+  }
+
+  function selectedEffectIds() {
+    return $$("[data-effect]:checked").map((input) => input.dataset.effect);
+  }
+
+  function syncTrimFromInput() {
+    if (!state.selected) return;
+    updateClipRangeControls();
+    const start = Number($("#startSeconds").value || 0);
+    const video = $("#videoPreview");
+    if (Number.isFinite(start) && video.readyState >= 1 && start < video.duration) {
+      video.currentTime = start;
     }
   }
 
   async function exportVideo() {
-    if (!state.selected) { logLine("Import a video before exporting.", "warning"); return; }
+    const item = state.selected;
+    if (!item || !item.width || !item.height) {
+      toast("Impor video terlebih dahulu sebelum mengekspor.", "error");
+      return;
+    }
+
     const start = Number($("#startSeconds").value || 0);
     const duration = Number($("#durationSeconds").value || 0);
-    if (!Number.isFinite(duration) || duration <= 0 || start + duration > state.selected.durationSeconds + 0.05) {
-      logLine("Check the clip start and duration values.", "warning");
+    if (!Number.isFinite(start) || !Number.isFinite(duration) || start < 0 || duration <= 0 ||
+        start + duration > item.durationSeconds + 0.05) {
+      toast("Periksa waktu awal dan durasi klip. Rentang harus berada di dalam video.", "error");
       return;
     }
+
     const mode = $("#renderMode").value;
     if (mode !== "cpu" && !$("#renderEncoder").value) {
-      logLine("No compatible hardware encoder is available. Choose CPU mode.", "warning");
+      toast("Tidak ada encoder hardware yang tersedia. Pilih mode CPU.", "error");
       return;
     }
-    const selectedEffects = Array.from($("#renderEffects").selectedOptions).map((option) => option.value);
-    const estimatedMb = (duration * 7.2) / 8;
-    logLine("Preparing MP4 export · estimated video size around " + estimatedMb.toFixed(1) + " MB. Actual size varies with content.");
-    $("#exportButton").disabled = true;
-    const result = await window.klipo.startRender({
-      inputPath: state.selected.path,
-      startSeconds: start,
-      durationSeconds: duration,
-      width: 1080,
-      height: 1920,
-      fps: Number($("#outputFps").value),
-      threads: Number($("#cpuThreads").value),
-      mode,
-      encoder: $("#renderEncoder").value,
-      effects: selectedEffects,
-      captionText: $("#captionText").value,
-      captionStyle: $("#captionStyle").value
-    });
-    if (!result.started) {
-      $("#exportButton").disabled = false;
-      if (!result.canceled) logLine(result.error || "Export was not started.", "error");
-    } else {
-      $("#exportButton").querySelector("span").textContent = "…";
-      $("#jobConsole").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    const profile = window.KlipoOutputProfiles.getOutputProfile($("#outputAspect").value);
+    const button = $("#exportButton");
+    button.disabled = true;
+    button.querySelector("span").textContent = "…";
+    logLine("Menyiapkan ekspor " + profile.label + " · " + duration.toFixed(1) + " detik.");
+
+    try {
+      const result = await window.klipo.startRender({
+        inputPath: item.path,
+        startSeconds: start,
+        durationSeconds: duration,
+        width: profile.width,
+        height: profile.height,
+        fps: Number($("#outputFps").value),
+        threads: Number($("#cpuThreads").value),
+        mode,
+        encoder: $("#renderEncoder").value,
+        effects: selectedEffectIds(),
+        captionText: $("#captionText").value,
+        captionStyle: $("#captionStyle").value
+      });
+      if (!result.started) {
+        button.disabled = false;
+        button.querySelector("span").textContent = "↗";
+        if (!result.canceled) toast(result.error || "Ekspor tidak dapat dimulai.", "error");
+      } else {
+        $("#jobEta").textContent = "Render sedang berjalan…";
+        $("#jobStatusTop").textContent = "Render berjalan";
+        $("#jobConsole").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    } catch (error) {
+      button.disabled = false;
+      button.querySelector("span").textContent = "↗";
+      logLine("Ekspor gagal dimulai: " + error.message, "error");
+      toast("Ekspor gagal: " + error.message, "error");
     }
   }
 
   async function downloadFromUrl() {
-    const url = $("#downloadUrl").value.trim();
-    if (!url) { logLine("Paste a video URL first.", "warning"); return; }
-    $("#downloadButton").disabled = true;
-    const result = await window.klipo.startDownload(url);
-    if (!result.started) {
-      $("#downloadButton").disabled = false;
-      if (!result.canceled) logLine(result.error || "Download was not started.", "error");
+    const input = $("#downloadUrl");
+    const url = input.value.trim();
+    if (!url) {
+      toast("Masukkan URL video terlebih dahulu.", "error");
+      input.focus();
+      return;
+    }
+
+    const button = $("#downloadButton");
+    button.disabled = true;
+    try {
+      const result = await window.klipo.startDownload(url);
+      if (!result.started) {
+        button.disabled = false;
+        if (!result.canceled) toast(result.error || "Unduhan tidak dapat dimulai.", "error");
+      } else {
+        $("#downloadStatus").textContent = "Sedang mengunduh…";
+        $("#downloadProgressLabel").textContent = "RUNNING";
+        $("#jobStatusTop").textContent = "Unduhan berjalan";
+      }
+    } catch (error) {
+      button.disabled = false;
+      logLine("Unduhan gagal dimulai: " + error.message, "error");
+      toast("Unduhan gagal: " + error.message, "error");
     }
   }
 
   async function transcribeSelected() {
-    if (!state.selected) return;
-    $("#transcribeButton").disabled = true;
-    $("#transcribeButton").textContent = "Transcribing…";
+    if (!state.selected || !state.selected.hasAudio) return;
+    const button = $("#transcribeButton");
+    button.disabled = true;
+    button.textContent = "Mentranskripsikan…";
     try {
       const text = await window.klipo.transcribeMedia(state.selected.path);
       $("#transcriptOutput").value = text;
-      logLine("Transcription finished. Review the text before using it as a caption.");
-    } catch (error) { logLine("Transcription failed: " + error.message, "error"); }
-    finally { $("#transcribeButton").disabled = false; $("#transcribeButton").textContent = "Transcribe selected file"; }
+      logLine("Transkripsi selesai. Periksa hasil sebelum menggunakannya sebagai caption.");
+      toast("Transkripsi selesai.");
+    } catch (error) {
+      logLine("Transkripsi gagal: " + error.message, "error");
+      toast("Transkripsi gagal: " + error.message, "error");
+    } finally {
+      button.disabled = !state.selected || !state.selected.hasAudio;
+      button.textContent = "Transkripsikan media terpilih";
+    }
   }
 
   function renderHighlightResults(highlights) {
     const container = $("#highlightResults");
     container.replaceChildren();
-    if (!highlights.length) {
+    if (!Array.isArray(highlights) || !highlights.length) {
       const empty = document.createElement("div");
       empty.className = "highlight-empty";
-      empty.textContent = "No valid highlights were returned.";
+      empty.textContent = "AI tidak mengembalikan rentang highlight yang valid.";
       container.append(empty);
       return;
     }
@@ -343,16 +562,18 @@
       time.textContent = formatTime(item.startSeconds) + " – " + formatTime(item.endSeconds);
       heading.append(title, time);
       const reason = document.createElement("p");
-      reason.textContent = item.reason || "Suggested from the timestamped transcript.";
+      reason.textContent = item.reason || "Saran berdasarkan transkrip bertimestamp.";
       const apply = document.createElement("button");
-      apply.className = "text-button";
-      apply.textContent = "Use this clip range in Editor →";
+      apply.type = "button";
+      apply.className = "text-link";
+      apply.textContent = "Gunakan rentang ini di editor →";
       apply.addEventListener("click", () => {
         if (!state.selected) return;
         setPage("editor");
         $("#startSeconds").value = item.startSeconds.toFixed(1);
         $("#durationSeconds").value = item.durationSeconds.toFixed(1);
-        logLine("Applied AI highlight range: " + title.textContent + " (" + time.textContent + "). Review it before exporting.");
+        updateClipRangeControls();
+        logLine("Rentang highlight diterapkan. Tinjau hasilnya sebelum ekspor.");
       });
       card.append(heading, reason, apply);
       container.append(card);
@@ -363,66 +584,80 @@
     if (!state.selected) return;
     const button = $("#findHighlightsButton");
     button.disabled = true;
-    button.textContent = "Analyzing transcript…";
-    $("#highlightStatus").textContent = "Extracting audio, requesting timestamps and ranking moments…";
+    button.textContent = "Menganalisis…";
+    $("#highlightStatus").textContent = "Mengekstrak audio, meminta transkrip bertimestamp, dan menilai momen…";
     try {
       const highlights = await window.klipo.findHighlights(state.selected.path);
       renderHighlightResults(highlights);
-      $("#highlightStatus").textContent = highlights.length + " clip suggestions ready. Review each range before export.";
-      logLine("AI highlight analysis returned " + highlights.length + " validated clip suggestions.");
+      $("#highlightStatus").textContent = highlights.length + " saran siap. Pilih saran untuk menerapkannya ke editor.";
+      logLine("Analisis AI menghasilkan " + highlights.length + " saran highlight yang lolos validasi.");
     } catch (error) {
       $("#highlightStatus").textContent = error.message;
-      logLine("AI highlight analysis failed: " + error.message, "error");
+      logLine("Analisis highlight gagal: " + error.message, "error");
+      toast("Analisis highlight gagal: " + error.message, "error");
     } finally {
       button.disabled = !state.selected || !state.selected.hasAudio || !state.selected.width || !state.selected.height;
-      button.textContent = "Find highlights in selected media";
+      button.textContent = "✦ Cari highlight";
     }
   }
 
-  function appendChat(role, content) {
-    const row = document.createElement("div");
-    row.className = role === "user" ? "user-message" : "assistant-message";
-    if (role !== "user") {
-      const avatar = document.createElement("div");
-      avatar.className = "assistant-avatar";
-      avatar.textContent = "✳";
-      row.append(avatar);
+  async function sendChat(prompt) {
+    const message = String(prompt == null ? $("#chatInput").value : prompt).trim();
+    if (!message) return;
+    if (message.length > 4000) {
+      toast("Pesan terlalu panjang. Maksimum 4.000 karakter.", "error");
+      return;
     }
-    const body = document.createElement("div");
-    const heading = document.createElement("strong");
-    heading.textContent = role === "user" ? "You" : "Klipo Assistant";
-    const text = document.createElement("p");
-    text.textContent = content;
-    body.append(heading, text);
-    row.append(body);
-    $("#chatMessages").append(row);
-    $("#chatMessages").scrollTop = $("#chatMessages").scrollHeight;
-  }
 
-  async function sendChat() {
-    const input = $("#chatInput");
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = "";
-    state.messages.push({ role: "user", content: text });
-    appendChat("user", text);
+    $("#chatInput").value = "";
     $("#chatSend").disabled = true;
+    state.lastChatPrompt = message;
+    appendChat("user", message);
+
+    const nextMessages = state.messages.concat([{ role: "user", content: message }]);
     try {
-      const response = await window.klipo.askAi(state.messages);
-      state.messages.push({ role: "assistant", content: response });
+      const response = await window.klipo.askAi(nextMessages);
+      state.messages = nextMessages.concat([{ role: "assistant", content: response }]);
       appendChat("assistant", response);
     } catch (error) {
-      appendChat("assistant", "I could not complete that request: " + error.message);
-    } finally { $("#chatSend").disabled = false; }
+      // Failed prompts are not added to the conversation history. Retry will submit
+      // the prompt once, not replay every failed request from the current session.
+      appendChat("error", error.message || "Provider AI tidak dapat menyelesaikan permintaan.", message);
+      logLine("Permintaan AI gagal: " + error.message, "warning");
+    } finally {
+      $("#chatSend").disabled = false;
+      $("#chatInput").focus();
+    }
+  }
+
+  async function loadAiSettings() {
+    const settings = await window.klipo.getAiSettings();
+    $("#chatBaseUrl").value = settings.chatBaseUrl || "https://openrouter.ai/api/v1";
+    $("#chatModel").value = settings.chatModel || "";
+    $("#chatFallbackModels").value = Array.isArray(settings.chatFallbackModels)
+      ? settings.chatFallbackModels.join(", ") : "";
+    $("#transcriptionBaseUrl").value = settings.transcriptionBaseUrl || "https://api.openai.com/v1";
+    $("#transcriptionModel").value = settings.transcriptionModel || "whisper-1";
+    $("#chatConfigStatus").textContent = settings.chatConfigured
+      ? "● API key tersimpan aman · model " + (settings.chatModel || "belum dipilih")
+      : "○ Chat AI belum dikonfigurasi";
+    $("#transcriptionConfigStatus").textContent = settings.transcriptionConfigured
+      ? "● Endpoint transkripsi sudah dikonfigurasi"
+      : "○ Transkripsi belum dikonfigurasi";
+    $("#chatStatus").textContent = settings.chatConfigured ? "TERKONFIGURASI" : "BELUM DIATUR";
+    $("#chatStatus").classList.toggle("configured", Boolean(settings.chatConfigured));
   }
 
   async function saveAiSettings() {
     const feedback = $("#settingsFeedback");
-    feedback.textContent = "Saving securely…";
+    const button = $("#saveAiSettings");
+    button.disabled = true;
+    feedback.textContent = "Menyimpan kredensial secara aman…";
     try {
       const result = await window.klipo.saveAiSettings({
         chatBaseUrl: $("#chatBaseUrl").value.trim(),
         chatModel: $("#chatModel").value.trim(),
+        chatFallbackModels: $("#chatFallbackModels").value,
         chatApiKey: $("#chatApiKey").value,
         transcriptionBaseUrl: $("#transcriptionBaseUrl").value.trim(),
         transcriptionModel: $("#transcriptionModel").value.trim(),
@@ -430,20 +665,48 @@
       });
       $("#chatApiKey").value = "";
       $("#transcriptionApiKey").value = "";
-      feedback.textContent = "Settings saved. Chat " + (result.chatConfigured ? "configured" : "not configured") + "; transcription " + (result.transcriptionConfigured ? "configured" : "not configured") + ".";
       await loadAiSettings();
-    } catch (error) { feedback.textContent = error.message; }
+      feedback.textContent = "Tersimpan. Chat: " + (result.chatConfigured ? "siap" : "belum lengkap") +
+        " · Transkripsi: " + (result.transcriptionConfigured ? "siap" : "belum lengkap") + ".";
+      toast("Pengaturan AI berhasil disimpan.");
+    } catch (error) {
+      feedback.textContent = error.message;
+      toast("Pengaturan tidak tersimpan: " + error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
   }
 
-  async function loadAiSettings() {
-    const settings = await window.klipo.getAiSettings();
-    $("#chatBaseUrl").value = settings.chatBaseUrl;
-    $("#chatModel").value = settings.chatModel;
-    $("#transcriptionBaseUrl").value = settings.transcriptionBaseUrl;
-    $("#transcriptionModel").value = settings.transcriptionModel;
-    $("#chatConfigStatus").textContent = settings.chatConfigured ? "● Chat credentials saved" : "○ Chat not configured";
-    $("#transcriptionConfigStatus").textContent = settings.transcriptionConfigured ? "● Transcription credentials saved" : "○ Transcription not configured";
-    $("#chatStatus").textContent = settings.chatConfigured ? "CONNECTED CONFIGURATION" : "NOT CONFIGURED";
+  async function loadChatModels() {
+    const button = $("#loadChatModels");
+    const feedback = $("#chatConfigStatus");
+    button.disabled = true;
+    button.textContent = "Memuat…";
+    try {
+      const models = await window.klipo.listAiModels({
+        baseUrl: $("#chatBaseUrl").value.trim(),
+        apiKey: $("#chatApiKey").value
+      });
+      const datalist = $("#chatModelSuggestions");
+      datalist.replaceChildren();
+      models.forEach((model) => {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.label = model.name && model.name !== model.id ? model.name : model.id;
+        datalist.append(option);
+      });
+      feedback.textContent = models.length
+        ? "Koneksi katalog berhasil · " + models.length + " model tersedia. Pilih salah satu dari daftar model."
+        : "Koneksi berhasil, tetapi provider tidak mengembalikan katalog model.";
+      if (!$("#chatModel").value && models.length) $("#chatModel").value = models[0].id;
+      toast(models.length + " model berhasil dimuat.");
+    } catch (error) {
+      feedback.textContent = error.message;
+      toast("Tidak dapat memuat model: " + error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Muat model";
+    }
   }
 
   async function addDownloadedMedia(filePath) {
@@ -451,56 +714,90 @@
     try {
       const item = await window.klipo.inspectDownloaded(filePath);
       if (!state.media.some((media) => media.path === item.path)) state.media.push(item);
-      selectMedia(item.path);
       renderLibrary();
+      selectMedia(item.path);
       setPage("editor");
-      logLine("Downloaded media was added to your editor library: " + item.name);
+      logLine("Media hasil unduhan sudah masuk ke editor: " + item.name);
+      toast("Media berhasil diimpor ke editor.");
     } catch (error) {
-      logLine("Download completed, but Klipo could not import the file automatically: " + error.message, "warning");
+      logLine("Unduhan selesai tetapi file tidak dapat diimpor otomatis: " + error.message, "warning");
+      toast("Unduhan selesai, tetapi impor otomatis gagal: " + error.message, "error");
     }
   }
 
   function handleJobUpdate(update) {
     state.job = update;
-    const percent = Math.max(0, Math.min(100, Number(update.percent || 0)));
+    const percent = Math.max(0, Math.min(100, Number(update.percent) || 0));
     $("#globalProgressBar").style.width = percent + "%";
-    $("#globalProgressText").textContent = update.status === "complete" ? "100%" : update.status === "running" ? Math.round(percent) + "%" : update.status;
+    $("#globalProgressText").textContent = update.status === "complete"
+      ? "100%" : update.status === "running" ? Math.round(percent) + "%" : String(update.status || "SIAP").toUpperCase();
     $("#cancelJob").disabled = update.status !== "running";
+    $("#jobStatusTop").textContent = update.status === "running"
+      ? (update.kind === "download" ? "Unduhan berjalan" : "Render berjalan")
+      : update.status === "complete" ? "Pekerjaan selesai"
+        : update.status === "error" ? "Pekerjaan gagal"
+          : update.status === "canceled" ? "Dibatalkan" : "Siap digunakan";
+
     $("#openOutput").hidden = !update.outputPath || update.status !== "complete";
     if (update.outputPath && update.status === "complete") state.lastOutputPath = update.outputPath;
+
     if (update.kind === "download") {
       $("#downloadProgressBar").style.width = percent + "%";
-      $("#downloadProgressLabel").textContent = update.status.toUpperCase();
-      $("#downloadStatus").textContent = update.status === "complete" ? "Download completed." : update.status === "error" ? update.error : "Downloading… " + Math.round(percent) + "%";
+      $("#downloadProgressLabel").textContent = String(update.status || "").toUpperCase();
+      $("#downloadStatus").textContent = update.status === "complete"
+        ? "Unduhan selesai." : update.status === "error" ? (update.error || "Unduhan gagal.")
+          : update.status === "canceled" ? "Unduhan dibatalkan."
+            : "Mengunduh… " + Math.round(percent) + "%";
       if (update.status !== "running") $("#downloadButton").disabled = false;
     }
+
     if (update.status === "running") {
-      const eta = Number.isFinite(update.etaSeconds) ? " · about " + Math.ceil(update.etaSeconds) + " sec remaining" : "";
-      $("#jobEta").textContent = "Job running" + eta;
+      const eta = Number.isFinite(update.etaSeconds)
+        ? " · perkiraan " + Math.ceil(update.etaSeconds) + " detik tersisa" : "";
+      $("#jobEta").textContent = (update.kind === "download" ? "Unduhan berjalan" : "Render berjalan") + eta;
     } else if (update.status === "complete") {
-      $("#jobEta").textContent = "Completed successfully";
+      $("#jobEta").textContent = "Selesai · " + (update.outputPath || "file tersimpan");
       $("#exportButton").disabled = false;
       $("#exportButton").querySelector("span").textContent = "↗";
-      logLine("Output ready: " + (update.outputPath || "download folder"));
+      logLine("Hasil siap: " + (update.outputPath || "folder unduhan"));
       if (update.kind === "download" && update.outputPath) addDownloadedMedia(update.outputPath);
+      toast(update.kind === "download" ? "Unduhan selesai." : "Ekspor video selesai.");
     } else if (update.status === "error") {
-      $("#jobEta").textContent = update.error || "Job failed";
+      $("#jobEta").textContent = update.error || "Pekerjaan gagal";
       $("#exportButton").disabled = false;
       $("#exportButton").querySelector("span").textContent = "↗";
+      logLine(update.error || "Pekerjaan gagal.", "error");
+      toast(update.error || "Pekerjaan gagal.", "error");
     } else if (update.status === "canceled") {
-      $("#jobEta").textContent = "Job canceled";
+      $("#jobEta").textContent = "Pekerjaan dibatalkan";
       $("#exportButton").disabled = false;
       $("#exportButton").querySelector("span").textContent = "↗";
+      toast("Pekerjaan dibatalkan.");
     }
   }
 
   function bindEvents() {
-    $$("[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
-    $$("[data-go]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.go)));
-    $("#globalImport").addEventListener("click", importMedia);
-    ["#dashboardImport", "#emptyImport", "#editorImport", "#previewImport"].forEach((selector) => $(selector).addEventListener("click", importMedia));
+    $$("[data-page]").forEach((button) => {
+      button.addEventListener("click", () => setPage(button.dataset.page));
+    });
+    $$("[data-go]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        setPage(button.dataset.go);
+      });
+    });
+
+    ["#globalImport", "#dashboardImport", "#editorImport", "#previewImport", "#emptyImport", "#emptyImportFallback"]
+      .forEach((selector) => $(selector).addEventListener("click", importMedia));
     $("#dashboardOpenEditor").addEventListener("click", () => setPage("editor"));
-    $("#removeSelected").addEventListener("click", () => { state.selected = null; updateEditorMedia(); updateTranscriptionSource(); renderLibrary(); });
+    $("#removeSelected").addEventListener("click", () => {
+      state.selectedPath = "";
+      state.selected = null;
+      updateEditorMedia(true);
+      updateTranscriptionSource();
+      renderLibrary();
+    });
+
     $("#captionText").addEventListener("input", updateCaptionPreview);
     $("#captionStyle").addEventListener("change", updateCaptionPreview);
     $("#exportButton").addEventListener("click", exportVideo);
@@ -508,49 +805,86 @@
     $("#transcribeButton").addEventListener("click", transcribeSelected);
     $("#findHighlightsButton").addEventListener("click", findHighlights);
     $("#useTranscript").addEventListener("click", () => {
-      $("#captionText").value = $("#transcriptOutput").value;
+      $("#captionText").value = $("#transcriptOutput").value.slice(0, 500);
       updateCaptionPreview();
       setPage("editor");
+      toast("Teks transkrip dimasukkan ke caption.");
     });
-    $("#chatForm").addEventListener("submit", (event) => { event.preventDefault(); sendChat(); });
+    $("#chatForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendChat();
+    });
     $("#saveAiSettings").addEventListener("click", saveAiSettings);
-    $("#cpuThreads").addEventListener("input", (event) => { $("#threadValue").textContent = event.target.value; });
-    $("#renderMode").addEventListener("change", () => {
-      const hardware = $("#renderMode").value !== "cpu";
-      $("#renderEncoder").disabled = !hardware || !state.appInfo || state.appInfo.encoders.length === 0;
-      $("#encoderHint").textContent = hardware ? "Uses CPU filters with the selected hardware H.264 encoder. Driver/device availability is confirmed by a real render." : "CPU mode uses software H.264 encoding.";
+    $("#loadChatModels").addEventListener("click", loadChatModels);
+
+    $("#cpuThreads").addEventListener("input", (event) => {
+      $("#threadValue").textContent = event.target.value;
     });
+    $("#renderMode").addEventListener("change", updateRenderMode);
     $("#useFullClip").addEventListener("click", () => {
       if (!state.selected) return;
-      $("#startSeconds").value = 0;
+      $("#startSeconds").value = "0";
       $("#durationSeconds").value = Math.min(30, state.selected.durationSeconds).toFixed(1);
+      updateClipRangeControls();
     });
-    $("#languageToggle").addEventListener("click", () => setLanguage(state.language === "en" ? "id" : "en"));
-    $("#settingsLanguage").addEventListener("change", (event) => setLanguage(event.target.value));
-    $("#cancelJob").addEventListener("click", async () => { await window.klipo.cancelJob(); });
+
+    $("#startSeconds").addEventListener("change", syncTrimFromInput);
+    $("#durationSeconds").addEventListener("change", updateClipRangeControls);
+    $("#trimStartSlider").addEventListener("input", () => {
+      $("#startSeconds").value = $("#trimStartSlider").value;
+      syncTrimFromInput();
+    });
+    $("#trimDurationSlider").addEventListener("input", () => {
+      $("#durationSeconds").value = $("#trimDurationSlider").value;
+      updateClipRangeControls();
+    });
+    $("#videoPreview").addEventListener("loadedmetadata", () => updateClipRangeControls());
     $("#clearLogs").addEventListener("click", () => $("#consoleLines").replaceChildren());
-    $("#openOutput").addEventListener("click", () => { if (state.lastOutputPath) window.klipo.openPath(state.lastOutputPath); });
-    $("#videoPreview").addEventListener("timeupdate", () => {
-      const video = $("#videoPreview");
-      if (video.duration) $("#startSeconds").dataset.playhead = video.currentTime.toFixed(1);
+    $("#cancelJob").addEventListener("click", async () => {
+      try { await window.klipo.cancelJob(); } catch (error) { toast("Gagal membatalkan pekerjaan: " + error.message, "error"); }
+    });
+    $("#openOutput").addEventListener("click", async () => {
+      if (!state.lastOutputPath) return;
+      try {
+        await window.klipo.openPath(state.lastOutputPath);
+      } catch (error) {
+        toast("Tidak dapat membuka file hasil: " + error.message, "error");
+      }
     });
   }
 
   async function boot() {
     populateCaptionStyles();
     bindEvents();
-    state.language = localStorage.getItem("klipo-language") || "en";
-    setLanguage(state.language);
     window.klipo.onJobUpdate(handleJobUpdate);
     window.klipo.onJobLog((entry) => logLine(entry.message, entry.level));
+    window.addEventListener("unhandledrejection", (event) => {
+      const message = event.reason && event.reason.message ? event.reason.message : String(event.reason || "Kesalahan tidak diketahui");
+      logLine("Kesalahan aplikasi: " + message, "error");
+      toast("Terjadi kesalahan: " + message, "error");
+    });
+
     try {
       state.appInfo = await window.klipo.getAppInfo();
       configureHardware();
-      logLine("Device detected: " + state.appInfo.cpuModel + " · " + state.appInfo.logicalCpus + " logical CPUs.");
-      if (state.appInfo.downloaderAvailable) logLine("yt-dlp is available on PATH.");
-    } catch (error) { logLine("Hardware detection failed: " + error.message, "warning"); }
-    try { await loadAiSettings(); } catch (error) { logLine("Could not load AI settings: " + error.message, "warning"); }
+      logLine("Perangkat terdeteksi: " + state.appInfo.cpuModel + " · " + state.appInfo.logicalCpus +
+        " logical CPU · " + formatBytes(state.appInfo.totalMemoryBytes) + " RAM.");
+      if (state.appInfo.downloaderAvailable) logLine("yt-dlp bawaan Klipo tersedia.");
+      else logLine("yt-dlp tidak ditemukan. Instal ulang Klipo untuk memulihkan downloader.", "warning");
+    } catch (error) {
+      logLine("Deteksi perangkat gagal: " + error.message, "warning");
+      toast("Informasi perangkat tidak dapat dibaca: " + error.message, "error");
+    }
+
+    try {
+      await loadAiSettings();
+    } catch (error) {
+      logLine("Pengaturan AI tidak dapat dimuat: " + error.message, "warning");
+    }
+
     renderLibrary();
+    updateEditorMedia();
+    updateTranscriptionSource();
     updateCaptionPreview();
   }
 
