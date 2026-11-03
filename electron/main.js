@@ -10,6 +10,7 @@ const { buildRenderArgs } = require("../src/core/render-plan");
 const { runCapture } = require("./process-utils");
 const { parseHighlightPayload } = require("../src/core/highlights");
 const { resolvePackagedBinaryPath } = require("./binary-path");
+const { resolveDownloaderPath } = require("./downloader-path");
 
 let mainWindow = null;
 let activeJob = null;
@@ -19,6 +20,7 @@ const completedOutputPaths = new Set();
 
 const ffmpegPath = resolveBinary(() => require("ffmpeg-static"), "ffmpeg");
 const ffprobePath = resolveBinary(() => require("ffprobe-static").path, "ffprobe");
+const ytDlpPath = resolveDownloaderPath();
 
 function resolveBinary(loader, command) {
   try {
@@ -65,7 +67,7 @@ function getAppInfo() {
     encoders: getAvailableEncoders(),
     ffmpegAvailable: ffmpegPath !== "ffmpeg" || spawnSync("ffmpeg", ["-version"], { windowsHide: true }).status === 0,
     ffprobeAvailable: ffprobePath !== "ffprobe" || spawnSync("ffprobe", ["-version"], { windowsHide: true }).status === 0,
-    downloaderAvailable: spawnSync("yt-dlp", ["--version"], { windowsHide: true, encoding: "utf8" }).status === 0
+    downloaderAvailable: spawnSync(ytDlpPath, ["--version"], { windowsHide: true, encoding: "utf8", timeout: 15000 }).status === 0
   };
 }
 
@@ -382,9 +384,9 @@ async function startDownload(rawUrl) {
   } catch (error) {
     return { started: false, error: error.message || "Enter a valid URL." };
   }
-  const downloaderCheck = spawnSync("yt-dlp", ["--version"], { encoding: "utf8", windowsHide: true });
-  if (downloaderCheck.status !== 0) {
-    return { started: false, error: "yt-dlp was not found. Install yt-dlp and add it to Windows PATH, then restart Klipo." };
+  const downloaderCheck = spawnSync(ytDlpPath, ["--version"], { encoding: "utf8", windowsHide: true, timeout: 15000 });
+  if (downloaderCheck.error || downloaderCheck.status !== 0) {
+    return { started: false, error: "Klipo could not start yt-dlp. Reinstall Klipo to restore its bundled downloader, or install yt-dlp and add it to Windows PATH." };
   }
   const folder = await dialog.showOpenDialog(mainWindow, { title: "Choose download folder", properties: ["openDirectory", "createDirectory"] });
   if (folder.canceled || !folder.filePaths[0]) return { started: false, canceled: true };
@@ -392,7 +394,8 @@ async function startDownload(rawUrl) {
   const template = path.join(folder.filePaths[0], "%(title).120B [%(id)s].%(ext)s");
   const args = ["--newline", "--no-playlist", "--merge-output-format", "mp4", "--print", "after_move:filepath", "-o", template, url.toString()];
   logJob("Starting yt-dlp. Download only media you own or are authorized to save.");
-  const child = spawn("yt-dlp", args, { windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+  args.splice(0, 0, "--ffmpeg-location", ffmpegPath);
+  const child = spawn(ytDlpPath, args, { windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] });
   activeJob = { process: child, kind: "download" };
   let lastPath = "";
   send("job:update", { kind: "download", status: "running", percent: 0 });
@@ -570,6 +573,9 @@ async function runInstalledSmokeTest() {
     if (!info.ffmpegAvailable || !info.ffprobeAvailable) {
       throw new Error("Packaged FFmpeg or FFprobe binary is unavailable.");
     }
+    if (!info.downloaderAvailable) {
+      throw new Error("Packaged yt-dlp downloader is unavailable.");
+    }
 
     writeSmokeStage("creating-renderer-window");
     smokeWindow = new BrowserWindow({
@@ -640,6 +646,7 @@ async function runInstalledSmokeTest() {
       ui,
       ffmpegAvailable: info.ffmpegAvailable,
       ffprobeAvailable: info.ffprobeAvailable,
+      downloaderAvailable: info.downloaderAvailable,
       encoder: plan.codec,
       width: rendered.width,
       height: rendered.height,
