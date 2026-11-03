@@ -41,15 +41,16 @@ jobs:
           $resultFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke-result.json"
           $env:KLIPO_SMOKE_TEST = "1"
           $env:KLIPO_SMOKE_RESULT_PATH = $resultFile
-          $app = Start-Process -FilePath $appExe -ArgumentList @("--klipo-smoke-test") -Wait -PassThru
+          & $appExe --klipo-smoke-test
+          $appExitCode = $LASTEXITCODE
           if (-not (Test-Path $resultFile)) {
             $startedFile = "$resultFile.started"
             $diagnostic = if (Test-Path $startedFile) { Get-Content $startedFile -Raw } else { "No main-process startup marker was written." }
-            throw "Installed app did not write its smoke-test result file. Exit code: $($app.ExitCode). Startup: $diagnostic"
+            throw "Installed app did not write its smoke-test result file. Exit code: $appExitCode. Startup: $diagnostic"
           }
           $smoke = Get-Content $resultFile -Raw | ConvertFrom-Json
-          if ($app.ExitCode -ne 0 -or $smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio) {
-            throw "Installed app smoke-test assertions failed (exit $($app.ExitCode)): $(Get-Content $resultFile -Raw)"
+          if ($appExitCode -ne 0 -or $smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio) {
+            throw "Installed app smoke test failed (exit $appExitCode): $(Get-Content $resultFile -Raw)"
           }
           Get-Content $resultFile
       - name: Upload installer artifact
