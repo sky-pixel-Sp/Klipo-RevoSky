@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("klipo", Object.freeze({
   startDownload: (url) => ipcRenderer.invoke("download:start", url),
   saveAiSettings: (settings) => ipcRenderer.invoke("ai:save-settings", settings),
   getAiSettings: () => ipcRenderer.invoke("ai:get-settings"),
+  listAiModels: (input) => ipcRenderer.invoke("ai:list-models", input || {}),
   askAi: (messages) => ipcRenderer.invoke("ai:chat", messages),
   transcribeMedia: (filePath) => ipcRenderer.invoke("ai:transcribe", filePath),
   findHighlights: (filePath) => ipcRenderer.invoke("ai:highlights", filePath),

@@ -1,39 +1,41 @@
-# Windows build guide
+# Windows build guide — Klipo RevoSky 0.2.0
 
 ## Prerequisites
 
-1. Install Node.js 22 LTS (Node.js 20.19+ is the minimum supported version).
-2. Install Git for Windows.
-3. Use a Windows 10/11 x64 machine.
-4. Ensure at least 5 GB of free disk space for dependencies, temporary render files and build output.
-5. For URL imports, install yt-dlp separately and make sure yt-dlp is available in PowerShell PATH.
+1. Windows 10/11 x64.
+2. Node.js 22 LTS (Node 20.19+ is the minimum).
+3. Git for Windows.
+4. At least 5 GB free disk space for dependencies, media fixtures, temporary files and installer output.
+5. A working network connection during the first installer build so the official yt-dlp Windows executable can be downloaded and validated.
 
-## Run from source
+## Install and run from source
 
-Open PowerShell in the cloned repository:
+Open PowerShell in the repository:
 
     npm install
+    npm run check
     npm test
     npm run dev
 
-## Produce an installer
+## Build installer
 
     npm run dist:win
 
-The NSIS installer is written to the release directory. The app bundles FFmpeg/FFprobe npm binaries for the target platform where package installation supports them. Verify the actual installer on a clean Windows machine before distribution.
+The `predist:win` lifecycle script downloads the official latest Windows `yt-dlp.exe` into `vendor/yt-dlp.exe`, checks the PE/MZ header, runs `yt-dlp --version`, then returns control to electron-builder. The executable is copied to the app's `resources/bin/yt-dlp.exe` directory. A downloader download or validation error must fail the build.
+
+The installer is written into `release/`. It bundles platform-specific FFmpeg and FFprobe npm binaries as well as yt-dlp. End users do not need to install yt-dlp or edit Windows PATH.
 
 ## GitHub Actions
 
-The workflow in .github/workflows/windows-build.yml runs tests and builds the x64 installer on Windows. Push to main or run it manually from the Actions tab. The workflow uploads the installer as a downloadable artifact.
+Pushes to `main` and `rebuild/**` run the Windows workflow. The workflow performs dependency installation, syntax checks, unit/integration tests, Windows NSIS packaging, silent installation, packaged-app smoke tests, a synthetic FFmpeg render and FFprobe verification, silent uninstallation, and artifact upload.
 
-## Hardware acceleration notes
+## Hardware acceleration
 
-The app inspects the FFmpeg encoder list before enabling QSV, NVENC or AMF. A listed encoder does not prove that a compatible GPU driver/device is currently usable; an actual render is the final check. CPU mode is the compatibility fallback. Hybrid mode means CPU-side filters with hardware video encoding, not that every effect is split across CPU and GPU.
+The application checks the encoder list returned by its FFmpeg build before offering QSV, NVENC or AMF. Encoder presence does not prove a compatible driver/device is usable. A physical output test is still required. CPU mode is the fallback. Hybrid mode means CPU filters plus hardware H.264 encode.
 
-## Laptop settings (8 GB RAM)
+## Conservative 8 GB laptop defaults
 
-- Start with 720p or 1080x1920 output and 2-4 CPU threads.
-- Use veryfast CPU encoding to keep interactive use responsive.
-- Close memory-heavy apps while rendering.
-- Prefer SSD scratch space and keep free disk headroom.
-- Avoid loading large local language models on an 8 GB system; use remote AI APIs or lightweight services.
+- The app selects two CPU threads by default for a device between 6 and 10 GiB of RAM.
+- Start with 720p or 1080×1920 content and CPU mode for the first test.
+- Avoid running large local models on an 8 GB system.
+- Keep adequate SSD scratch space and close memory-heavy applications during long renders.

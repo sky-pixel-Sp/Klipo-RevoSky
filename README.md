@@ -1,72 +1,86 @@
-# Klipo RevoSky
+# Klipo RevoSky 0.2.0
 
-Local-first Windows desktop video clipping and editing app. The project is under active MVP development.
+Klipo RevoSky is a local-first Windows desktop video studio. The 0.2 rebuild replaces the earlier crowded MVP interface with a guided Indonesian workflow for importing, trimming, styling, downloading and exporting media.
 
-## Current foundation
+## What is implemented
 
-- Electron desktop app with context isolation, sandboxed renderer and an allow-listed preload bridge.
-- Native multi-file media import and FFprobe inspection (duration, resolution, codecs, audio presence and size).
-- Single-clip trim and MP4 export using a real FFmpeg child process.
-- 25 subtitle/title presets rendered through FFmpeg drawtext.
-- Nine selectable FFmpeg effects: cinematic, warm, monochrome, sharpen, vignette, soft focus, mirror, bright and muted.
-- CPU encoding, detected QSV/NVENC/AMF hardware encoding, CPU-filter + hardware-encode hybrid mode, and configurable thread count.
-- FFmpeg progress protocol, elapsed/ETA display, activity log and cancellation.
-- Optional yt-dlp URL downloader for supported sites; availability depends on yt-dlp, platform policy, access and the user's rights.
-- OpenAI-compatible AI chat endpoint configuration plus a separate audio transcription endpoint.
-- AI highlight finder: requests timestamped transcription (`verbose_json`), ranks up to five moments with the configured chat model, validates clip ranges and applies approved ranges to the editor.
-- API keys stored encrypted with Electron safeStorage when available.
-- English default UI with an Indonesian navigation translation.
-- Windows x64 NSIS packaging workflow and Node built-in unit tests.
+- Electron desktop shell with context isolation, sandboxed renderer and a narrow allow-listed IPC bridge.
+- Multi-file local import, preview and FFprobe metadata inspection.
+- A single-source-clip editing workflow with numeric in/out fields and synchronized trim sliders.
+- Three real output profiles: vertical 9:16 (1080×1920), landscape 16:9 (1920×1080) and square 1:1 (1080×1080).
+- 25 caption/title presets, one editable text overlay per export, and nine selectable FFmpeg effects.
+- CPU H.264 rendering and detected QSV/NVENC/AMF hardware encoders. CPU remains the compatibility fallback.
+- RAM-aware default CPU thread limits. For an 8 GB laptop the default is two threads; users can adjust it.
+- FFmpeg progress, elapsed time/ETA, bounded activity log, cancel support and FFprobe verification of completed exports.
+- Bundled Windows yt-dlp executable. The build downloads and validates the official Windows binary, includes it in installer resources, and provides FFmpeg's path for media merging.
+- OpenAI-compatible chat provider configuration, live `/models` discovery, up to three user-selected fallback models, clear handling for authentication/model/provider errors and special handling for OpenRouter's `free-models-per-day` quota response.
+- Separate audio transcription endpoint; video audio is extracted locally before being sent to the configured transcription provider.
+- AI highlight suggestions based on timestamped transcription. Ranges are validated and must be approved by the user before export.
+- API keys encrypted with Electron `safeStorage` when available. Secrets never enter renderer state.
+- Indonesian-first interface, contextual empty states, toast feedback, clear activity states and retry actions for failed chat prompts.
 
-## Quick start on Windows
+## Windows quick start
 
-Requirements: Windows 10/11 x64, Node.js 20.19+ (Node 22 LTS recommended), and 5 GB+ free disk space for build/dependency and temporary media files.
+For end users, use the packaged Windows x64 NSIS installer from the latest successful **Windows build** workflow. The installer bundles FFmpeg, FFprobe and yt-dlp; no separate yt-dlp PATH setup is required.
+
+For developers, use Node.js 22 LTS on Windows 10/11 x64:
 
     git clone https://github.com/sky-pixel-Sp/Klipo-RevoSky.git
     cd Klipo-RevoSky
     npm install
+    npm run check
     npm test
     npm run dev
 
-Build the installer with: npm run dist:win
+Build the installer with:
 
-See docs/BUILD.md for Windows instructions and GitHub Actions artifact details.
+    npm run dist:win
 
-## Hardware guidance
+The `predist:win` lifecycle script downloads and validates yt-dlp before electron-builder packages the application. A failed download or version check intentionally stops the build rather than producing an installer with a missing downloader.
 
-For an 8 GB RAM Intel Core i5-U laptop, begin with 720p or 1080x1920 output, CPU mode and 2-4 threads. Hardware encoding is shown only when the installed FFmpeg build lists a supported encoder. The driver/device must still pass a real render. CPU mode is the fallback. Hybrid means CPU-side filters plus GPU video encoding; it does not mean every filter is computed simultaneously by both processors.
+## Hardware notes
 
-## Implemented vs. not yet implemented
+The app detects CPU model, logical CPU count, installed RAM and FFmpeg encoders. A device with 8 GB RAM receives a conservative two-thread default. Use CPU mode first for compatibility. A listed hardware encoder is only a capability signal; it must still pass an actual render with the installed driver. Hybrid means CPU video filters plus hardware video encoding.
 
-| Feature | Status |
+## Feature boundary
+
+| Area | 0.2 status |
 |---|---|
-| Local media import / preview / metadata | Implemented in this foundation |
-| Single clip trim and MP4 render | Implemented |
-| 25 FFmpeg caption presets | Implemented |
-| Nine FFmpeg video effects | Implemented |
-| CPU threads / QSV / NVENC / AMF discovery | Implemented with runtime availability checks |
-| Render progress, ETA, log and cancel | Implemented for active FFmpeg jobs |
-| URL downloader | yt-dlp integration; install separately and follow site rules |
-| AI chat | OpenAI-compatible chat completions endpoint |
-| AI transcription | Compatible /audio/transcriptions endpoint; video audio is extracted locally first |
-| AI highlight suggestions | Implemented with timestamped `verbose_json` transcription plus AI ranking; requires both configured providers and valid timestamp segments |
-| Multi-track timeline, transitions and keyframes | Planned |
-| Full automatic highlight editing / automatic timeline mutation | Partially implemented: AI suggests timestamped highlight ranges and users approve/apply them; automatic multi-clip timeline assembly is planned |
-| Google Drive OAuth | Planned; requires OAuth app setup and scopes |
-| MCP server connection / random relay URL | Not enabled; must be built with explicit trust and permission handling |
-| clippo.id login / publishing | Not enabled until official API docs and authorization are available |
-| Cross-platform social search | Planned; requires permitted platform APIs or sources |
+| Import, preview, metadata | Implemented |
+| One source clip, trim sliders and numeric in/out | Implemented |
+| 9:16, 16:9 and 1:1 output selection | Implemented |
+| 25 caption presets and nine FFmpeg effects | Implemented |
+| CPU, QSV, NVENC, AMF selection | Runtime detection; physical device render must be verified |
+| Progress, cancellation and output verification | Implemented for active render/download jobs |
+| URL download | Bundled yt-dlp integration; live source behavior depends on site support and permissions |
+| AI chat and model discovery | Implemented for OpenAI-compatible `/chat/completions` and `/models` APIs |
+| AI fallback | Up to three manually configured models; daily free-model quota is not blindly retried |
+| Transcription and AI highlight suggestions | Implemented when a compatible speech endpoint and chat provider are configured |
+| Multi-track timeline, keyframes, transitions, word-level subtitle animation | Not implemented in this release |
+| Google Drive OAuth, MCP connections, clippo.id publishing | Not implemented; not shown as active features |
+
+## AI provider and quota behavior
+
+Chat and transcription are independent capabilities. A chat completion model does not automatically support speech-to-text. Klipo can list models exposed by a compatible `/models` endpoint. Fallback models must be selected by the user; the app does not assume that another model is free or has the same capabilities.
+
+An OpenRouter `free-models-per-day` 429 is an account quota condition, not an editor or laptop failure. Klipo reports it clearly and does not waste additional requests retrying the same exhausted free-model quota. An alternate model/provider may still require its own active quota or paid usage.
+
+## Testing
+
+Run:
+
+    npm run check
+    npm test
+
+The Node test suite covers render argument safety, output profiles, RAM-aware defaults, AI provider behavior with mocked HTTP responses, highlight parsing, process handling, UI element contracts and synthetic FFmpeg/FFprobe end-to-end exports.
+
+The Windows GitHub Actions workflow additionally builds the NSIS installer, installs it silently, launches the packaged app in smoke-test mode, verifies the new UI/bridge/output-profile/downloader resources, renders a synthetic video with audio through packaged FFmpeg and verifies it with packaged FFprobe, then uninstalls the app.
+
+These automated checks do not substitute for real-world tests that require the user's private API keys, live website URLs, personal media, Windows laptop, or physical hardware drivers. See [docs/TESTING.md](docs/TESTING.md).
 
 ## Security and content rights
 
-Renderer JavaScript receives no Node.js access and never receives API keys. File operations and child processes run in the Electron main process. URL downloads must only be used for content the user is authorized to save. The app does not attempt to bypass DRM, paywalls, private-content access controls or platform restrictions. Never commit API keys, account cookies or private media.
-
-## Project documents
-
-- docs/ARCHITECTURE.md — process boundaries and media pipeline.
-- docs/BUILD.md — local development and Windows installer.
-- docs/ROADMAP.md — milestones and external integrations.
-- docs/TESTING.md — automated test coverage and checks that require credentials or hardware.
+The renderer has no Node.js access. API keys remain in the Electron main process and are stored using OS-backed encryption where supported. User-provided URLs and media are treated as untrusted input. URL downloads must only be used for media the user is authorized to save. Klipo does not bypass DRM, paywalls, private access controls or platform restrictions.
 
 ## License
 

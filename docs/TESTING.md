@@ -1,34 +1,38 @@
-# Testing strategy and current evidence
+# Testing strategy — Klipo RevoSky 0.2.0
 
-## Automated tests
+## Local test commands
 
-Run on Node.js 22:
+On Node.js 22:
 
     npm install
     npm run check
     npm test
 
-The test suite covers:
+## Automated coverage
 
-- Child-process stdout/stderr capture, non-zero exits and timeouts.
-- Render-plan validation, CPU thread clamping, unsupported GPU encoder rejection, filter-path escaping and even output dimensions for yuv420p.
-- AI highlight response parsing, timestamp range validation, overlap rejection, five-result limit and display-text bounds.
-- A real FFmpeg end-to-end smoke test. It generates a synthetic test video with an audio track, renders each of the nine video effects and all 25 caption presets, then uses FFprobe to verify the resulting MP4 dimensions, duration and retained audio.
-- A post-install Windows smoke test. CI silently installs the generated NSIS installer, launches the installed Electron app in a dedicated smoke-test mode, verifies the renderer and preload bridge, then creates and renders a synthetic video through the packaged FFmpeg/FFprobe binaries and verifies audio and video metadata.
+- Process runner: stdout/stderr capture, non-zero exit and timeout handling.
+- Render-plan builder: safe input validation, CPU thread clamping, rejection of unavailable GPU encoders, filter-path escaping, even dimensions and caption/effect composition.
+- Output profiles: exact 9:16, 16:9 and 1:1 dimensions.
+- Device profile: conservative thread defaults for low-memory, 8 GB, 16 GB and limited-CPU configurations.
+- AI provider: OpenRouter free-model daily quota classification, auth/model errors, `/models` catalogue normalization, fallback selection, and no retry loop for exhausted daily quota. HTTP behavior is tested with deterministic mocked fetch functions; live provider credentials are not used by tests.
+- Highlight parser: JSON parsing, timestamp bounds, overlap rejection, five-result limit and text bounds.
+- UI contract: required pages, media controls, trim sliders, output ratio, model discovery, fallback configuration, activity and bridge calls.
+- FFmpeg end-to-end: generated synthetic video with audio, all nine effects and 25 caption presets; FFprobe verifies output metadata and retained audio.
+- Windows installed-app smoke test: silent NSIS install, Electron startup, page/preload contract, output-profile module, trim controls, packaged FFmpeg/FFprobe/yt-dlp presence, synthetic render, FFprobe output verification and silent uninstall.
 
-The FFmpeg smoke test intentionally uses a generated fixture. It does not require a private video or an external download.
+## Manual tests still required
 
-## Checks that still require user/provider hardware
+Automated tests cannot prove the following without the user's actual device, files, service credentials or platform conditions:
 
-These are not covered by CI because they depend on private credentials, platform permissions or specific hardware:
+- Import and preview of the user's range of MP4/MOV/MKV/WebM/audio assets.
+- Per-driver QSV/NVENC/AMF output on their physical laptop; CPU render is the baseline fallback.
+- Actual download behavior against a permitted live URL. Site extractors, login requirements and platform policies change independently of Klipo.
+- Live AI chat, model catalogue access and fallback model behavior with the user's active provider account and quota.
+- Speech-to-text and AI highlight quality on a real video using a provider/model that supports timestamped `verbose_json`.
+- Sustained export performance, memory pressure and UI responsiveness on the user's Windows 11 laptop.
 
-- Live OpenAI-compatible chat requests and live timestamped transcription (response_format=verbose_json).
-- AI highlight quality on a real creator video. The parser and timestamp safety checks are unit-tested, but model judgment is provider-dependent.
-- yt-dlp downloads from a real source. Only download media that you own or are authorized to save; site access, cookies and platform restrictions vary.
-- QSV, NVENC or AMF output on a physical device with compatible drivers. Listing an encoder is not proof that the driver can encode; choose CPU fallback if a real hardware render fails.
-- Installer installation, app startup, import and export on the user's Windows 11 laptop.
-- Google Drive OAuth, MCP client/server connections and clippo.id publishing. They are not implemented in this build; provider documentation, client configuration and explicit permissions are prerequisites.
+Google Drive OAuth, MCP, multi-track timeline and clippo.id publishing are not part of the 0.2 implementation and are not counted as passing tests.
 
 ## Interpreting CI
 
-A successful Windows workflow means syntax checks passed, automated tests passed and the x64 NSIS installer was packaged and uploaded. It does not establish that private API credentials, remote services, platform downloads or every hardware encoder work on every machine.
+A green workflow means the checked code passed syntax checks and tests, the NSIS installer built, the installed app passed the automated smoke check, FFmpeg rendered a synthetic clip that FFprobe accepted, yt-dlp was present in the packaged app, and uninstall completed. It does not prove that every external provider, website, private account or physical GPU works on every machine.
