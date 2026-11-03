@@ -380,6 +380,20 @@
     $("#chatStatus").textContent = settings.chatConfigured ? "CONNECTED CONFIGURATION" : "NOT CONFIGURED";
   }
 
+  async function addDownloadedMedia(filePath) {
+    if (!filePath) return;
+    try {
+      const item = await window.klipo.inspectDownloaded(filePath);
+      if (!state.media.some((media) => media.path === item.path)) state.media.push(item);
+      selectMedia(item.path);
+      renderLibrary();
+      setPage("editor");
+      logLine("Downloaded media was added to your editor library: " + item.name);
+    } catch (error) {
+      logLine("Download completed, but Klipo could not import the file automatically: " + error.message, "warning");
+    }
+  }
+
   function handleJobUpdate(update) {
     state.job = update;
     const percent = Math.max(0, Math.min(100, Number(update.percent || 0)));
@@ -402,6 +416,7 @@
       $("#exportButton").disabled = false;
       $("#exportButton").querySelector("span").textContent = "↗";
       logLine("Output ready: " + (update.outputPath || "download folder"));
+      if (update.kind === "download" && update.outputPath) addDownloadedMedia(update.outputPath);
     } else if (update.status === "error") {
       $("#jobEta").textContent = update.error || "Job failed";
       $("#exportButton").disabled = false;
