@@ -32,3 +32,18 @@ test("renderer uses the tested output profile module and model discovery bridge"
   assert.match(renderer, /KlipoOutputProfiles\.getOutputProfile/);
   assert.match(renderer, /listAiModels/);
 });
+
+test("every UI element id is unique and effects use explicit checkboxes", () => {
+  const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), (match) => match[1]);
+  assert.equal(ids.length, new Set(ids).size, "HTML must not contain duplicate element IDs");
+  assert.match(html, /<div class="effects-grid" id="renderEffects">/);
+  assert.match(html, /data-effect="cinematic"/);
+  assert.doesNotMatch(html, /<select[^>]*multiple/);
+});
+
+test("all output aspect profiles are exposed to the renderer before it starts", () => {
+  assert.match(html, /<script src="\.\/core\/output-profiles\.js"><\/script>\s*<script src="\.\/renderer\.js"><\/script>/);
+  assert.match(renderer, /trimStartSlider/);
+  assert.match(renderer, /trimDurationSlider/);
+  assert.match(renderer, /chatFallbackModels/);
+});
