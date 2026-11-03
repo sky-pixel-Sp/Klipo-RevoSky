@@ -80,7 +80,7 @@ async function listProviderModels(options = {}) {
       if (!item.id || seen.has(item.id)) return false;
       seen.add(item.id);
       return true;
-    }).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 2000);
+    }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).slice(0, 2000);
   } catch (error) {
     if (error && error.name === "AbortError") throw new Error("Waktu pemeriksaan provider habis. Periksa koneksi internet dan API Base URL.");
     throw error;
