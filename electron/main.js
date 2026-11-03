@@ -11,6 +11,8 @@ const { runCapture } = require("./process-utils");
 const { parseHighlightPayload } = require("../src/core/highlights");
 const { resolvePackagedBinaryPath } = require("./binary-path");
 const { resolveDownloaderPath } = require("./downloader-path");
+const { recommendedThreadCount, deviceProfile } = require("../src/core/device-profile");
+const { listProviderModels, chatCompletionWithFallback, providerError } = require("./ai-provider");
 
 let mainWindow = null;
 let activeJob = null;
@@ -64,6 +66,8 @@ function getAppInfo() {
     logicalCpus: cpus.length,
     totalMemoryBytes: os.totalmem(),
     freeMemoryBytes: os.freemem(),
+    recommendedThreads: recommendedThreadCount(os.totalmem(), cpus.length),
+    memoryProfile: deviceProfile(os.totalmem()),
     encoders: getAvailableEncoders(),
     ffmpegAvailable: ffmpegPath !== "ffmpeg" || spawnSync("ffmpeg", ["-version"], { windowsHide: true }).status === 0,
     ffprobeAvailable: ffprobePath !== "ffprobe" || spawnSync("ffprobe", ["-version"], { windowsHide: true }).status === 0,
@@ -118,6 +122,7 @@ function readStoredSettings() {
     return {
       chatBaseUrl: raw.chatBaseUrl || "https://openrouter.ai/api/v1",
       chatModel: raw.chatModel || "",
+      chatFallbackModels: Array.isArray(raw.chatFallbackModels) ? raw.chatFallbackModels : [],
       transcriptionBaseUrl: raw.transcriptionBaseUrl || "https://api.openai.com/v1",
       transcriptionModel: raw.transcriptionModel || "whisper-1",
       chatApiKey: decrypt(raw.chatApiKeyEncrypted),
@@ -127,6 +132,7 @@ function readStoredSettings() {
     return {
       chatBaseUrl: "https://openrouter.ai/api/v1",
       chatModel: "",
+      chatFallbackModels: [],
       transcriptionBaseUrl: "https://api.openai.com/v1",
       transcriptionModel: "whisper-1",
       chatApiKey: "",
@@ -146,6 +152,8 @@ function storeSettings(input) {
   const next = {
     chatBaseUrl: input.chatBaseUrl ? safeEndpoint(input.chatBaseUrl) : previous.chatBaseUrl,
     chatModel: String(input.chatModel || previous.chatModel || "").trim(),
+    chatFallbackModels: (Array.isArray(input.chatFallbackModels) ? input.chatFallbackModels : String(input.chatFallbackModels || previous.chatFallbackModels.join(",") || "").split(/[,;\n]/))
+      .map((value) => String(value || "").trim()).filter(Boolean).filter((value, index, array) => array.indexOf(value) === index).slice(0, 3),
     transcriptionBaseUrl: input.transcriptionBaseUrl ? safeEndpoint(input.transcriptionBaseUrl) : previous.transcriptionBaseUrl,
     transcriptionModel: String(input.transcriptionModel || previous.transcriptionModel || "whisper-1").trim(),
     chatApiKeyEncrypted: input.chatApiKey ? safeStorage.encryptString(String(input.chatApiKey)).toString("base64") : (old.chatApiKeyEncrypted || ""),
@@ -165,6 +173,7 @@ function publicSettings() {
   return {
     chatBaseUrl: settings.chatBaseUrl,
     chatModel: settings.chatModel,
+    chatFallbackModels: settings.chatFallbackModels,
     transcriptionBaseUrl: settings.transcriptionBaseUrl,
     transcriptionModel: settings.transcriptionModel,
     chatConfigured: Boolean(settings.chatApiKey && settings.chatModel),
@@ -174,21 +183,31 @@ function publicSettings() {
 
 async function callAiChat(messages) {
   const settings = readStoredSettings();
-  if (!settings.chatApiKey || !settings.chatModel) throw new Error("Configure a chat API key and model in Settings first.");
-  const endpoint = safeEndpoint(settings.chatBaseUrl) + "/chat/completions";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { Authorization: "Bearer " + settings.chatApiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: settings.chatModel,
-      messages: (Array.isArray(messages) ? messages : []).slice(-12),
-      temperature: 0.5
-    }),
-    signal: AbortSignal.timeout(90000)
+  if (!settings.chatApiKey || !settings.chatModel) {
+    throw new Error("AI belum siap. Buka Pengaturan → Koneksi asisten AI, simpan API key dan pilih model.");
+  }
+  const cleanMessages = (Array.isArray(messages) ? messages : [])
+    .filter((item) => item && ["system", "user", "assistant"].includes(item.role) && typeof item.content === "string")
+    .slice(-12)
+    .map((item) => ({ role: item.role, content: item.content.slice(0, 12000) }));
+  const result = await chatCompletionWithFallback({
+    baseUrl: safeEndpoint(settings.chatBaseUrl),
+    apiKey: settings.chatApiKey,
+    model: settings.chatModel,
+    fallbackModels: settings.chatFallbackModels,
+    messages: cleanMessages
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error("AI request failed (" + response.status + "): " + ((payload.error || {}).message || response.statusText));
-  return String((((payload.choices || [])[0] || {}).message || {}).content || "The provider returned no text.");
+  if (result.fallbackUsed) {
+    logJob("Model utama tidak tersedia. Permintaan dialihkan ke model cadangan: " + result.modelUsed + ".");
+  }
+  return result.text;
+}
+
+async function listAiModels(input = {}) {
+  const settings = readStoredSettings();
+  const baseUrl = safeEndpoint(input.baseUrl || settings.chatBaseUrl);
+  const apiKey = String(input.apiKey || settings.chatApiKey || "").trim();
+  return listProviderModels({ baseUrl, apiKey });
 }
 
 async function transcribeMedia(filePath, responseFormat = "") {
@@ -231,7 +250,7 @@ async function transcribeMedia(filePath, responseFormat = "") {
       signal: AbortSignal.timeout(180000)
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error("Transcription failed (" + response.status + "): " + ((payload.error || {}).message || response.statusText));
+    if (!response.ok) throw new Error(providerError(response.status, payload).message);
     return responseFormat === "verbose_json" ? payload : String(payload.text || "");
   } finally {
     if (temporaryAudioPath) await fs.promises.unlink(temporaryAudioPath).catch(() => {});
@@ -284,95 +303,144 @@ async function findHighlights(filePath) {
   return parseHighlightPayload(content, metadata.durationSeconds);
 }
 
-function startRender(options) {
-  return new Promise(async (resolve) => {
-    if (activeJob) return resolve({ started: false, error: "Another media job is already running." });
-    const inputPath = path.resolve(String((options || {}).inputPath || ""));
-    if (!inputPath || !allowedMediaPaths.has(inputPath) || !fs.existsSync(inputPath)) {
-      return resolve({ started: false, error: "Import a valid local video file first." });
+async function startRender(options) {
+  if (activeJob) return { started: false, error: "Pekerjaan lain masih berjalan. Tunggu sampai selesai atau batalkan terlebih dahulu." };
+  const inputPath = path.resolve(String((options || {}).inputPath || ""));
+  if (!inputPath || !allowedMediaPaths.has(inputPath) || !fs.existsSync(inputPath)) {
+    return { started: false, error: "Impor file video lokal melalui Klipo sebelum mengekspor." };
+  }
+
+  let metadata;
+  try {
+    metadata = await probeMedia(inputPath);
+  } catch (error) {
+    return { started: false, error: "File video tidak dapat dibaca: " + error.message };
+  }
+  if (!metadata.width || !metadata.height) {
+    return { started: false, error: "File yang dipilih tidak memiliki stream video." };
+  }
+
+  const start = Number((options || {}).startSeconds);
+  const duration = Number((options || {}).durationSeconds);
+  if (!Number.isFinite(start) || !Number.isFinite(duration) || start < 0 || duration <= 0 ||
+      start + duration > metadata.durationSeconds + 0.05) {
+    return { started: false, error: "Rentang klip tidak valid atau melewati durasi sumber video." };
+  }
+
+  const output = await dialog.showSaveDialog(mainWindow, {
+    title: "Ekspor video",
+    defaultPath: path.join(app.getPath("videos"), path.parse(inputPath).name + "-klipo.mp4"),
+    filters: [{ name: "MP4 Video", extensions: ["mp4"] }]
+  });
+  if (output.canceled || !output.filePath) return { started: false, canceled: true };
+
+  let captionFilePath = null;
+  try {
+    const captionText = String((options || {}).captionText || "").slice(0, 500);
+    if (captionText.trim()) {
+      captionFilePath = path.join(app.getPath("temp"), "klipo-caption-" + Date.now() + ".txt");
+      await fs.promises.writeFile(captionFilePath, captionText, "utf8");
     }
 
-    const output = await dialog.showSaveDialog(mainWindow, {
-      title: "Export video",
-      defaultPath: path.join(app.getPath("videos"), path.parse(inputPath).name + "-klipo.mp4"),
-      filters: [{ name: "MP4 Video", extensions: ["mp4"] }]
-    });
-    if (output.canceled || !output.filePath) return resolve({ started: false, canceled: true });
-
-    let captionFilePath = null;
-    try {
-      const captionText = String((options || {}).captionText || "");
-      if (captionText.trim()) {
-        captionFilePath = path.join(app.getPath("temp"), "klipo-caption-" + Date.now() + ".txt");
-        await fs.promises.writeFile(captionFilePath, captionText, "utf8");
-      }
-      writeSmokeStage("synthetic-media-created");
     const plan = buildRenderArgs({
-        ...options,
-        inputPath,
-        outputPath: output.filePath,
-        captionFilePath,
-        availableEncoders: getAvailableEncoders()
-      }, { logicalCpus: os.cpus().length });
+      ...options,
+      inputPath,
+      startSeconds: start,
+      durationSeconds: duration,
+      outputPath: output.filePath,
+      captionFilePath,
+      availableEncoders: getAvailableEncoders()
+    }, { logicalCpus: os.cpus().length });
 
-      logJob("Render started: " + path.basename(inputPath) + " → " + path.basename(output.filePath));
-      logJob("Encoder: " + plan.codec + " · CPU/filter threads: " + plan.threads + " · Mode: " + plan.mode);
-      const processHandle = spawn(ffmpegPath, plan.args, { windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] });
-      const startedAt = Date.now();
-      activeJob = { process: processHandle, kind: "render", captionFilePath, outputPath: output.filePath };
-      resolve({ started: true, outputPath: output.filePath });
+    logJob("Render dimulai: " + path.basename(inputPath) + " → " + path.basename(output.filePath));
+    logJob("Encoder: " + plan.codec + " · Thread: " + plan.threads + " · Profil: " + plan.mode);
+    const processHandle = spawn(ffmpegPath, plan.args, {
+      windowsHide: true,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const startedAt = Date.now();
+    activeJob = { process: processHandle, kind: "render", captionFilePath, outputPath: output.filePath };
+    let finished = false;
 
-      let stdoutBuffer = "";
-      processHandle.stdout.on("data", (chunk) => {
-        stdoutBuffer += chunk.toString();
-        const lines = stdoutBuffer.split(/\r?\n/);
-        stdoutBuffer = lines.pop() || "";
-        for (const line of lines) {
-          const pair = line.split("=");
-          if (pair.length === 2 && pair[0] === "out_time_ms") {
-            const seconds = Number(pair[1]) / 1000000;
-            const percent = Math.min(99.5, Math.max(0, seconds / plan.durationSeconds * 100));
-            const elapsed = (Date.now() - startedAt) / 1000;
-            const eta = percent > 1 ? Math.max(0, elapsed * (100 / percent - 1)) : null;
-            send("job:update", { kind: "render", status: "running", percent, elapsedSeconds: elapsed, etaSeconds: eta, outputPath: output.filePath });
-          }
-        }
-      });
-      processHandle.stderr.on("data", (chunk) => {
-        const lines = chunk.toString().split(/\r?\n/).filter(Boolean);
-        for (const line of lines.slice(-8)) logJob(line, "detail");
-      });
-      processHandle.on("error", (error) => finishRender(error, null));
-      processHandle.on("close", (code) => finishRender(code === 0 ? null : new Error("FFmpeg exited with code " + code), code));
-    } catch (error) {
-      if (captionFilePath) fs.promises.unlink(captionFilePath).catch(() => {});
-      resolve({ started: false, error: error.message });
-    }
+    processHandle.stdout.on("data", (chunk) => {
+      const lines = chunk.toString().split(/\r?\n/).filter(Boolean);
+      for (const line of lines) {
+        const pair = line.split("=");
+        if (pair.length !== 2 || pair[0] !== "out_time_ms") continue;
+        const seconds = Number(pair[1]) / 1000000;
+        const percent = Math.min(99.5, Math.max(0, seconds / plan.durationSeconds * 100));
+        const elapsed = (Date.now() - startedAt) / 1000;
+        const eta = percent > 1 ? Math.max(0, elapsed * (100 / percent - 1)) : null;
+        send("job:update", {
+          kind: "render", status: "running", percent, elapsedSeconds: elapsed,
+          etaSeconds: eta, outputPath: output.filePath
+        });
+      }
+    });
 
-    function finishRender(error, code) {
+    processHandle.stderr.on("data", (chunk) => {
+      const lines = chunk.toString().split(/\r?\n/).filter(Boolean);
+      for (const line of lines.slice(-6)) logJob(line, "detail");
+    });
+
+    const finishRender = async (error, code) => {
+      if (finished) return;
+      if (!activeJob || activeJob.process !== processHandle) return;
+      finished = true;
       const job = activeJob;
-      if (!job || job.kind !== "render") return;
       activeJob = null;
-      if (job.captionFilePath) fs.promises.unlink(job.captionFilePath).catch(() => {});
-      const exists = fs.existsSync(output.filePath);
-      const size = exists ? fs.statSync(output.filePath).size : 0;
-      if (job.canceled) {
-        if (exists) fs.promises.unlink(output.filePath).catch(() => {});
-        logJob("Render canceled. Partial output was discarded.", "warning");
+      if (job.captionFilePath) await fs.promises.unlink(job.captionFilePath).catch(() => {});
+
+      const canceled = Boolean(job.canceled);
+      let outputSize = 0;
+      try {
+        if (fs.existsSync(output.filePath)) outputSize = (await fs.promises.stat(output.filePath)).size;
+      } catch (_error) {}
+
+      if (canceled) {
+        if (outputSize) await fs.promises.unlink(output.filePath).catch(() => {});
+        logJob("Render dibatalkan. File parsial dibuang.", "warning");
         send("job:update", { kind: "render", status: "canceled" });
         return;
       }
-      if (!error && code === 0 && size > 0) {
-        completedOutputPaths.add(path.resolve(output.filePath));
-        logJob("Export complete: " + (size / 1048576).toFixed(2) + " MB");
-        send("job:update", { kind: "render", status: "complete", percent: 100, outputPath: output.filePath, sizeBytes: size });
+
+      if (!error && code === 0 && outputSize > 0) {
+        try {
+          const rendered = await probeMedia(output.filePath);
+          if (!rendered.width || !rendered.height || rendered.durationSeconds <= 0) {
+            throw new Error("Hasil render tidak memiliki metadata video yang valid.");
+          }
+          completedOutputPaths.add(path.resolve(output.filePath));
+          logJob("Ekspor terverifikasi: " + rendered.width + " × " + rendered.height +
+            " · " + (outputSize / 1048576).toFixed(2) + " MB.");
+          send("job:update", {
+            kind: "render", status: "complete", percent: 100, outputPath: output.filePath,
+            sizeBytes: outputSize, width: rendered.width, height: rendered.height,
+            durationSeconds: rendered.durationSeconds, hasAudio: rendered.hasAudio
+          });
+        } catch (verifyError) {
+          await fs.promises.unlink(output.filePath).catch(() => {});
+          logJob("Verifikasi hasil ekspor gagal: " + verifyError.message, "error");
+          send("job:update", { kind: "render", status: "error", error: "Hasil render gagal diverifikasi: " + verifyError.message });
+        }
       } else {
-        if (exists) fs.promises.unlink(output.filePath).catch(() => {});
-        logJob(error ? error.message : "Render did not produce an output file.", "error");
-        send("job:update", { kind: "render", status: "error", error: error ? error.message : "Render failed." });
+        if (outputSize) await fs.promises.unlink(output.filePath).catch(() => {});
+        const message = error ? error.message : "FFmpeg tidak menghasilkan file output.";
+        logJob(message, "error");
+        send("job:update", { kind: "render", status: "error", error: message });
       }
-    }
-  });
+    };
+
+    processHandle.once("error", (error) => { void finishRender(error, null); });
+    processHandle.once("close", (code) => {
+      void finishRender(code === 0 ? null : new Error("FFmpeg berhenti dengan kode " + code), code);
+    });
+    return { started: true, outputPath: output.filePath };
+  } catch (error) {
+    if (captionFilePath) await fs.promises.unlink(captionFilePath).catch(() => {});
+    return { started: false, error: error.message };
+  }
 }
 
 async function startDownload(rawUrl) {
@@ -498,6 +566,7 @@ function registerHandlers() {
   ipcMain.handle("download:start", (_event, url) => startDownload(url));
   ipcMain.handle("ai:save-settings", (_event, input) => storeSettings(input || {}));
   ipcMain.handle("ai:get-settings", () => publicSettings());
+  ipcMain.handle("ai:list-models", (_event, input) => listAiModels(input || {}));
   ipcMain.handle("ai:chat", (_event, messages) => callAiChat(messages));
   ipcMain.handle("ai:transcribe", (_event, filePath) => transcribeMedia(String(filePath || "")));
   ipcMain.handle("ai:highlights", (_event, filePath) => findHighlights(String(filePath || "")));
