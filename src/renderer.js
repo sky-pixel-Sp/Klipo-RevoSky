@@ -179,9 +179,11 @@
     $("#findHighlightsButton").disabled = !state.selected || !state.selected.hasAudio || !state.selected.width || !state.selected.height;
     $("#highlightStatus").textContent = !state.selected
       ? "Import and select a video with audio first."
-      : state.selected.hasAudio
-        ? "Ready to analyze " + state.selected.name + "."
-        : "This media has no audio track.";
+      : (!state.selected.width || !state.selected.height)
+        ? "Select a video file with audio, not an audio-only file."
+        : state.selected.hasAudio
+          ? "Ready to analyze " + state.selected.name + "."
+          : "This video has no audio track.";
   }
 
   function populateCaptionStyles() {
