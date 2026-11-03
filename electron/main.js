@@ -5,6 +5,7 @@ const os = require("node:os");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
+const { pathToFileURL } = require("node:url");
 const { buildRenderArgs } = require("../src/core/render-plan");
 const { runCapture } = require("./process-utils");
 const { parseHighlightPayload } = require("../src/core/highlights");
@@ -77,6 +78,7 @@ async function probeMedia(filePath) {
   const duration = Number((data.format || {}).duration || (video || {}).duration || 0);
   return {
     path: filePath,
+    previewUrl: pathToFileURL(filePath).href,
     name: path.basename(filePath),
     sizeBytes: stat.size,
     durationSeconds: Number.isFinite(duration) ? duration : 0,
