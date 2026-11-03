@@ -66,6 +66,7 @@ Renderer JavaScript receives no Node.js access and never receives API keys. File
 - docs/ARCHITECTURE.md — process boundaries and media pipeline.
 - docs/BUILD.md — local development and Windows installer.
 - docs/ROADMAP.md — milestones and external integrations.
+- docs/TESTING.md — automated test coverage and checks that require credentials or hardware.
 
 ## License
 
