@@ -37,10 +37,13 @@ function parseHighlightPayload(content, videoDurationSeconds) {
     if (start < 0 || end <= start || end > duration + 0.05) continue;
     if (end - start < 2 || end - start > 60) continue;
 
+    const startSeconds = Math.round(start * 10) / 10;
+    const endSeconds = Math.round(Math.min(end, duration) * 10) / 10;
+    if (results.some((previous) => startSeconds < previous.endSeconds && endSeconds > previous.startSeconds)) continue;
     results.push({
-      startSeconds: Math.round(start * 10) / 10,
-      endSeconds: Math.round(Math.min(end, duration) * 10) / 10,
-      durationSeconds: Math.round((Math.min(end, duration) - start) * 10) / 10,
+      startSeconds,
+      endSeconds,
+      durationSeconds: Math.round((endSeconds - startSeconds) * 10) / 10,
       title: String(item.title || "Highlight").trim().slice(0, 80) || "Highlight",
       reason: String(item.reason || "").trim().slice(0, 240)
     });
