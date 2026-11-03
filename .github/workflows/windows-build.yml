@@ -33,18 +33,21 @@ jobs:
           $ErrorActionPreference = "Stop"
           $installer = Get-ChildItem "release" -Filter "*.exe" | Select-Object -First 1
           if (-not $installer) { throw "Windows installer was not produced." }
-          $installDir = Join-Path $env:RUNNER_TEMP "Klipo RevoSky Smoke"
+          $installDir = Join-Path $env:RUNNER_TEMP "KlipoRevoSkySmoke"
           $install = Start-Process -FilePath $installer.FullName -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
           if ($install.ExitCode -ne 0) { throw "Silent installer failed with exit code $($install.ExitCode)." }
           $appExe = Join-Path $installDir "Klipo RevoSky.exe"
           if (-not (Test-Path $appExe)) { throw "Installed application executable was not found at $appExe." }
-          $stdout = Join-Path $env:RUNNER_TEMP "klipo-smoke.stdout.log"
-          $stderr = Join-Path $env:RUNNER_TEMP "klipo-smoke.stderr.log"
-          $app = Start-Process -FilePath $appExe -ArgumentList @("--klipo-smoke-test") -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          if (Test-Path $stdout) { Get-Content $stdout }
-          if (Test-Path $stderr) { Get-Content $stderr }
+          $resultFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke-result.json"
+          $env:KLIPO_SMOKE_RESULT_PATH = $resultFile
+          $app = Start-Process -FilePath $appExe -ArgumentList @("--klipo-smoke-test") -Wait -PassThru
           if ($app.ExitCode -ne 0) { throw "Installed app smoke test failed with exit code $($app.ExitCode)." }
-          if (-not ((Get-Content $stdout -Raw) -match "KLIPO_INSTALLED_SMOKE_RESULT=.*passed")) { throw "Installed app did not report a successful smoke test." }
+          if (-not (Test-Path $resultFile)) { throw "Installed app did not write its smoke-test result file." }
+          $smoke = Get-Content $resultFile -Raw | ConvertFrom-Json
+          if ($smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio) {
+            throw "Installed app smoke-test assertions failed: $(Get-Content $resultFile -Raw)"
+          }
+          Get-Content $resultFile
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
