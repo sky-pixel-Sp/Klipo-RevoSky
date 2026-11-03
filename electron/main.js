@@ -526,7 +526,7 @@ function createWindow() {
 
 const installedSmokeTest = process.env.KLIPO_SMOKE_TEST === "1" || process.argv.includes("--klipo-smoke-test") || app.commandLine.hasSwitch("klipo-smoke-test");
 const smokeResultArgument = process.argv.find((argument) => argument.startsWith("--klipo-smoke-result="));
-const smokeResultPath = smokeResultPath ||
+const smokeResultPath = process.env.KLIPO_SMOKE_RESULT_PATH ||
   (smokeResultArgument ? smokeResultArgument.slice("--klipo-smoke-result=".length) : "");
 if (smokeResultPath) {
   try {
@@ -534,7 +534,7 @@ if (smokeResultPath) {
       argv: process.argv,
       smokeEnvironment: process.env.KLIPO_SMOKE_TEST || "",
       commandLineSwitch: app.commandLine.hasSwitch("klipo-smoke-test"),
-      smokeRequested
+      smokeRequested: installedSmokeTest
     }, null, 2), "utf8");
   } catch (_error) {}
 }
