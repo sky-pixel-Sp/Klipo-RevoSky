@@ -8,6 +8,7 @@
 - 25 FFmpeg drawtext caption presets.
 - Optional yt-dlp command integration.
 - OpenAI-compatible chat and configurable audio transcription endpoints.
+- AI highlight suggestions from timestamped transcription, with validated ranges and user approval before export.
 - Windows installer workflow and automated unit tests.
 
 ## Milestone 1 — Editing workflow
