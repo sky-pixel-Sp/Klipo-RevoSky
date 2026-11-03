@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("klipo", Object.freeze({
   getAiSettings: () => ipcRenderer.invoke("ai:get-settings"),
   askAi: (messages) => ipcRenderer.invoke("ai:chat", messages),
   transcribeMedia: (filePath) => ipcRenderer.invoke("ai:transcribe", filePath),
+  findHighlights: (filePath) => ipcRenderer.invoke("ai:highlights", filePath),
   openPath: (targetPath) => ipcRenderer.invoke("app:open-path", targetPath),
   mediaUrl: (filePath) => pathToFileURL(filePath).href,
   onJobUpdate: (callback) => subscribe("job:update", callback),
