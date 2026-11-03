@@ -149,11 +149,17 @@ function storeSettings(input) {
   const old = (() => {
     try { return JSON.parse(fs.readFileSync(settingsPath(), "utf8")); } catch (_error) { return {}; }
   })();
+  const fallbackSource = Object.prototype.hasOwnProperty.call(input, "chatFallbackModels")
+    ? input.chatFallbackModels : previous.chatFallbackModels;
+  const fallbackModels = (Array.isArray(fallbackSource) ? fallbackSource : String(fallbackSource || "").split(/[,;\n]/))
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, array) => array.indexOf(value) === index)
+    .slice(0, 3);
   const next = {
     chatBaseUrl: input.chatBaseUrl ? safeEndpoint(input.chatBaseUrl) : previous.chatBaseUrl,
     chatModel: String(input.chatModel || previous.chatModel || "").trim(),
-    chatFallbackModels: (Array.isArray(input.chatFallbackModels) ? input.chatFallbackModels : String(input.chatFallbackModels || previous.chatFallbackModels.join(",") || "").split(/[,;\n]/))
-      .map((value) => String(value || "").trim()).filter(Boolean).filter((value, index, array) => array.indexOf(value) === index).slice(0, 3),
+    chatFallbackModels: fallbackModels,
     transcriptionBaseUrl: input.transcriptionBaseUrl ? safeEndpoint(input.transcriptionBaseUrl) : previous.transcriptionBaseUrl,
     transcriptionModel: String(input.transcriptionModel || previous.transcriptionModel || "whisper-1").trim(),
     chatApiKeyEncrypted: input.chatApiKey ? safeStorage.encryptString(String(input.chatApiKey)).toString("base64") : (old.chatApiKeyEncrypted || ""),
@@ -724,11 +730,23 @@ async function runInstalledSmokeTest() {
       title: document.title,
       highlightButton: Boolean(document.getElementById("findHighlightsButton")),
       highlightResults: Boolean(document.getElementById("highlightResults")),
-      secureBridge: Boolean(window.klipo && typeof window.klipo.findHighlights === "function"),
+      secureBridge: Boolean(window.klipo && typeof window.klipo.findHighlights === "function" && typeof window.klipo.listAiModels === "function"),
+      outputProfilesLoaded: Boolean(window.KlipoOutputProfiles && window.KlipoOutputProfiles.getOutputProfile("landscape").width === 1920),
+      aspectRatioControl: Boolean(document.getElementById("outputAspect") && document.getElementById("outputAspect").options.length === 3),
+      trimControls: Boolean(document.getElementById("trimStartSlider") && document.getElementById("trimDurationSlider")),
+      uniqueElementIds: (() => {
+        const ids = Array.from(document.querySelectorAll("[id]")).map((node) => node.id);
+        return ids.length === new Set(ids).size;
+      })(),
+      primaryWorkspaces: ["dashboard", "editor", "downloads", "ai", "settings"].every((page) =>
+        Boolean(document.querySelector('[data-page-panel="' + page + '"]'))
+      ),
       unrestrictedMediaUrlRemoved: !window.klipo || typeof window.klipo.mediaUrl !== "function"
     })`), 15000, "Renderer bridge inspection");
     writeSmokeStage("renderer-bridge-verified", { ui });
-    if (ui.readyState !== "complete" || !ui.highlightButton || !ui.highlightResults || !ui.secureBridge || !ui.unrestrictedMediaUrlRemoved) {
+    if (ui.readyState !== "complete" || !ui.highlightButton || !ui.highlightResults || !ui.secureBridge ||
+        !ui.outputProfilesLoaded || !ui.aspectRatioControl || !ui.trimControls || !ui.uniqueElementIds ||
+        !ui.primaryWorkspaces || !ui.unrestrictedMediaUrlRemoved) {
       throw new Error("Installed renderer smoke test failed: " + JSON.stringify(ui));
     }
 
