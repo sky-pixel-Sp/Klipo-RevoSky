@@ -39,10 +39,12 @@ jobs:
           $appExe = Join-Path $installDir "Klipo RevoSky.exe"
           if (-not (Test-Path $appExe)) { throw "Installed application executable was not found at $appExe." }
           $resultFile = Join-Path $env:RUNNER_TEMP "klipo-installed-smoke-result.json"
+          $env:KLIPO_SMOKE_TEST = "1"
           $env:KLIPO_SMOKE_RESULT_PATH = $resultFile
           $app = Start-Process -FilePath $appExe -ArgumentList @("--klipo-smoke-test") -Wait -PassThru
-          if ($app.ExitCode -ne 0) { throw "Installed app smoke test failed with exit code $($app.ExitCode)." }
-          if (-not (Test-Path $resultFile)) { throw "Installed app did not write its smoke-test result file." }
+          if (-not (Test-Path $resultFile)) { throw "Installed app did not write its smoke-test result file. Exit code: $($app.ExitCode)." }
+          $smoke = Get-Content $resultFile -Raw | ConvertFrom-Json
+          if ($app.ExitCode -ne 0 -or $smoke.status -ne "passed") { throw "Installed app smoke test failed (exit $($app.ExitCode)): $(Get-Content $resultFile -Raw)" }
           $smoke = Get-Content $resultFile -Raw | ConvertFrom-Json
           if ($smoke.status -ne "passed" -or -not $smoke.ffmpegAvailable -or -not $smoke.ffprobeAvailable -or -not $smoke.ui.secureBridge -or -not $smoke.hasAudio) {
             throw "Installed app smoke-test assertions failed: $(Get-Content $resultFile -Raw)"
