@@ -13,6 +13,7 @@ Local-first Windows desktop video clipping and editing app. The project is under
 - FFmpeg progress protocol, elapsed/ETA display, activity log and cancellation.
 - Optional yt-dlp URL downloader for supported sites; availability depends on yt-dlp, platform policy, access and the user's rights.
 - OpenAI-compatible AI chat endpoint configuration plus a separate audio transcription endpoint.
+- AI highlight finder: requests timestamped transcription (`verbose_json`), ranks up to five moments with the configured chat model, validates clip ranges and applies approved ranges to the editor.
 - API keys stored encrypted with Electron safeStorage when available.
 - English default UI with an Indonesian navigation translation.
 - Windows x64 NSIS packaging workflow and Node built-in unit tests.
@@ -48,8 +49,9 @@ For an 8 GB RAM Intel Core i5-U laptop, begin with 720p or 1080x1920 output, CPU
 | URL downloader | yt-dlp integration; install separately and follow site rules |
 | AI chat | OpenAI-compatible chat completions endpoint |
 | AI transcription | Compatible /audio/transcriptions endpoint; video audio is extracted locally first |
+| AI highlight suggestions | Implemented with timestamped `verbose_json` transcription plus AI ranking; requires both configured providers and valid timestamp segments |
 | Multi-track timeline, transitions and keyframes | Planned |
-| Automatic highlight detection / AI edit execution | Planned; assistant currently provides plans, not automatic timeline mutations |
+| Full automatic highlight editing / automatic timeline mutation | Partially implemented: AI suggests timestamped highlight ranges and users approve/apply them; automatic multi-clip timeline assembly is planned |
 | Google Drive OAuth | Planned; requires OAuth app setup and scopes |
 | MCP server connection / random relay URL | Not enabled; must be built with explicit trust and permission handling |
 | clippo.id login / publishing | Not enabled until official API docs and authorization are available |
