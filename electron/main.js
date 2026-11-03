@@ -525,6 +525,17 @@ function createWindow() {
 
 
 const installedSmokeTest = process.env.KLIPO_SMOKE_TEST === "1" || process.argv.includes("--klipo-smoke-test") || app.commandLine.hasSwitch("klipo-smoke-test");
+if (process.env.KLIPO_SMOKE_RESULT_PATH) {
+  try {
+    fs.writeFileSync(process.env.KLIPO_SMOKE_RESULT_PATH + ".started", JSON.stringify({
+      argv: process.argv,
+      smokeEnvironment: process.env.KLIPO_SMOKE_TEST || "",
+      commandLineSwitch: app.commandLine.hasSwitch("klipo-smoke-test"),
+      smokeRequested: installedSmokeTest,
+      appPath: app.getAppPath()
+    }, null, 2), "utf8");
+  } catch (_error) {}
+}
 if (installedSmokeTest) app.disableHardwareAcceleration();
 
 async function runInstalledSmokeTest() {
