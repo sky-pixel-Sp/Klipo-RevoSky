@@ -302,7 +302,8 @@ function startRender(options) {
         captionFilePath = path.join(app.getPath("temp"), "klipo-caption-" + Date.now() + ".txt");
         await fs.promises.writeFile(captionFilePath, captionText, "utf8");
       }
-      const plan = buildRenderArgs({
+      writeSmokeStage("synthetic-media-created");
+    const plan = buildRenderArgs({
         ...options,
         inputPath,
         outputPath: output.filePath,
@@ -528,7 +529,23 @@ const installedSmokeTest = process.env.KLIPO_SMOKE_TEST === "1" || process.argv.
 const smokeResultArgument = process.argv.find((argument) => argument.startsWith("--klipo-smoke-result="));
 const smokeResultPath = process.env.KLIPO_SMOKE_RESULT_PATH ||
   (smokeResultArgument ? smokeResultArgument.slice("--klipo-smoke-result=".length) : "");
+function writeSmokeStage(stage, details = {}) {
+  if (!smokeResultPath) return;
+  try {
+    fs.writeFileSync(smokeResultPath, JSON.stringify({ status: "running", stage, ...details }, null, 2), "utf8");
+  } catch (_error) {}
+}
+function withSmokeTimeout(promise, timeoutMs, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(label + " timed out after " + timeoutMs + " ms.")), timeoutMs);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
 if (smokeResultPath) {
+  writeSmokeStage("main-module-loaded");
   try {
     fs.writeFileSync(smokeResultPath + ".started", JSON.stringify({
       argv: process.argv,
@@ -541,15 +558,18 @@ if (smokeResultPath) {
 if (installedSmokeTest) app.disableHardwareAcceleration();
 
 async function runInstalledSmokeTest() {
+  writeSmokeStage("smoke-function-entered");
   let smokeWindow = null;
   const directory = path.join(app.getPath("temp"), "klipo-installed-smoke-" + process.pid);
   await fs.promises.mkdir(directory, { recursive: true });
   try {
+    writeSmokeStage("checking-packaged-binaries");
     const info = getAppInfo();
     if (!info.ffmpegAvailable || !info.ffprobeAvailable) {
       throw new Error("Packaged FFmpeg or FFprobe binary is unavailable.");
     }
 
+    writeSmokeStage("creating-renderer-window");
     smokeWindow = new BrowserWindow({
       show: false,
       width: 1200,
@@ -562,19 +582,22 @@ async function runInstalledSmokeTest() {
         webSecurity: true
       }
     });
-    await smokeWindow.loadFile(path.join(__dirname, "..", "src", "index.html"));
-    const ui = await smokeWindow.webContents.executeJavaScript(`({
+    await withSmokeTimeout(smokeWindow.loadFile(path.join(__dirname, "..", "src", "index.html")), 45000, "Renderer page load");
+    writeSmokeStage("renderer-page-loaded");
+    const ui = await withSmokeTimeout(smokeWindow.webContents.executeJavaScript(`({
       readyState: document.readyState,
       title: document.title,
       highlightButton: Boolean(document.getElementById("findHighlightsButton")),
       highlightResults: Boolean(document.getElementById("highlightResults")),
       secureBridge: Boolean(window.klipo && typeof window.klipo.findHighlights === "function"),
       unrestrictedMediaUrlRemoved: !window.klipo || typeof window.klipo.mediaUrl !== "function"
-    })`);
+    })`), 15000, "Renderer bridge inspection");
+    writeSmokeStage("renderer-bridge-verified", { ui });
     if (ui.readyState !== "complete" || !ui.highlightButton || !ui.highlightResults || !ui.secureBridge || !ui.unrestrictedMediaUrlRemoved) {
       throw new Error("Installed renderer smoke test failed: " + JSON.stringify(ui));
     }
 
+    writeSmokeStage("creating-synthetic-media");
     const inputPath = path.join(directory, "smoke-input.mp4");
     const outputPath = path.join(directory, "smoke-output.mp4");
     const captionPath = path.join(directory, "smoke-caption.txt");
@@ -602,12 +625,14 @@ async function runInstalledSmokeTest() {
       mode: "cpu",
       effects: ["cinematic", "vignette"]
     }, { logicalCpus: Math.max(1, os.cpus().length) });
+    writeSmokeStage("rendering-packaged-smoke-video", { encoder: plan.codec });
     await runCapture(ffmpegPath, plan.args, 90000);
     const rendered = await probeMedia(outputPath);
     if (rendered.width !== 320 || rendered.height !== 240 || !rendered.hasAudio || rendered.sizeBytes < 1000) {
       throw new Error("Packaged FFmpeg render verification failed: " + JSON.stringify(rendered));
     }
 
+    writeSmokeStage("render-and-probe-verified", { width: rendered.width, height: rendered.height, hasAudio: rendered.hasAudio, outputSizeBytes: rendered.sizeBytes });
     const smokeResult = {
       status: "passed",
       ui,
@@ -629,10 +654,18 @@ async function runInstalledSmokeTest() {
   }
 }
 
+const smokeReadyTimer = installedSmokeTest ? setTimeout(() => {
+  writeSmokeStage("electron-app-ready-timeout");
+  app.exit(1);
+}, 60000) : null;
+
 app.whenReady().then(async () => {
+  if (smokeReadyTimer) clearTimeout(smokeReadyTimer);
+  writeSmokeStage("electron-app-ready");
   app.setAppUserModelId("com.revosky.klipo");
   registerHandlers();
   if (installedSmokeTest) {
+    writeSmokeStage("starting-installed-smoke-test");
     try {
       await runInstalledSmokeTest();
       app.exit(0);
