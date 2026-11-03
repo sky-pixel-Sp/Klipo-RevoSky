@@ -444,40 +444,75 @@ async function startRender(options) {
 }
 
 async function startDownload(rawUrl) {
-  if (activeJob) return { started: false, error: "Another media job is already running." };
+  if (activeJob) {
+    return { started: false, error: "Pekerjaan lain sedang berjalan. Selesaikan atau batalkan sebelum memulai unduhan baru." };
+  }
+
   let url;
   try {
     url = new URL(String(rawUrl || "").trim());
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only HTTP and HTTPS links are accepted.");
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error("Hanya tautan HTTP atau HTTPS yang didukung.");
+    if (url.username || url.password) throw new Error("Tautan yang berisi kredensial tidak diterima.");
   } catch (error) {
-    return { started: false, error: error.message || "Enter a valid URL." };
+    return { started: false, error: error.message || "Masukkan URL yang valid." };
   }
-  const downloaderCheck = spawnSync(ytDlpPath, ["--version"], { encoding: "utf8", windowsHide: true, timeout: 15000 });
+
+  const downloaderCheck = spawnSync(ytDlpPath, ["--version"], {
+    encoding: "utf8", windowsHide: true, timeout: 15000
+  });
   if (downloaderCheck.error || downloaderCheck.status !== 0) {
-    return { started: false, error: "Klipo could not start yt-dlp. Reinstall Klipo to restore its bundled downloader, or install yt-dlp and add it to Windows PATH." };
+    return {
+      started: false,
+      error: "yt-dlp bawaan Klipo tidak dapat dijalankan. Instal ulang Klipo versi terbaru untuk memulihkannya."
+    };
   }
-  const folder = await dialog.showOpenDialog(mainWindow, { title: "Choose download folder", properties: ["openDirectory", "createDirectory"] });
+
+  const folder = await dialog.showOpenDialog(mainWindow, {
+    title: "Pilih folder unduhan",
+    properties: ["openDirectory", "createDirectory"]
+  });
   if (folder.canceled || !folder.filePaths[0]) return { started: false, canceled: true };
 
   const template = path.join(folder.filePaths[0], "%(title).120B [%(id)s].%(ext)s");
-  const args = ["--newline", "--no-playlist", "--merge-output-format", "mp4", "--print", "after_move:filepath", "-o", template, url.toString()];
-  logJob("Starting yt-dlp. Download only media you own or are authorized to save.");
-  args.splice(0, 0, "--ffmpeg-location", ffmpegPath);
-  const child = spawn(ytDlpPath, args, { windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+  const args = [
+    "--newline", "--no-playlist", "--merge-output-format", "mp4",
+    "--print", "after_move:filepath", "-o", template,
+    "--ffmpeg-location", ffmpegPath,
+    url.toString()
+  ];
+
+  logJob("Memulai yt-dlp. Unduh hanya media yang kamu punya hak atau izin untuk simpan.");
+  let child;
+  try {
+    child = spawn(ytDlpPath, args, {
+      windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    return { started: false, error: "Tidak dapat menjalankan yt-dlp: " + error.message };
+  }
+
   activeJob = { process: child, kind: "download" };
   let lastPath = "";
+  let lastErrorLine = "";
+  let finalized = false;
   send("job:update", { kind: "download", status: "running", percent: 0 });
-  let stdoutBuffer = "";
-  let stderrBuffer = "";
+
   const handleDownloadLine = (line, source) => {
-    if (!line) return;
-    if (line.startsWith("[download]")) {
-      const match = line.match(/([\d.]+)%/);
-      if (match) send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
+    const value = String(line || "").trim();
+    if (!value) return;
+    if (value.startsWith("[download]")) {
+      const match = value.match(/([\d.]+)%/);
+      if (match) {
+        send("job:update", { kind: "download", status: "running", percent: Number(match[1]) });
+      }
     }
-    if (source === "stdout" && path.isAbsolute(line.trim())) lastPath = line.trim();
-    logJob(line, "detail");
+    if (source === "stdout" && path.isAbsolute(value) && fs.existsSync(value)) {
+      lastPath = value;
+    }
+    if (source === "stderr") lastErrorLine = value.slice(0, 900);
+    logJob(value, "detail");
   };
+
   const attachDownloadStream = (stream, source) => {
     let buffer = "";
     stream.on("data", (chunk) => {
@@ -490,33 +525,56 @@ async function startDownload(rawUrl) {
       if (buffer) handleDownloadLine(buffer, source);
     });
   };
+
   attachDownloadStream(child.stdout, "stdout");
   attachDownloadStream(child.stderr, "stderr");
-  child.on("error", (error) => {
-    activeJob = null;
-    send("job:update", { kind: "download", status: "error", error: error.message });
-  });
-  child.on("close", (code) => {
-    const wasCanceled = Boolean(activeJob && activeJob.process === child && activeJob.canceled);
+
+  const finishDownloadError = (message) => {
+    if (finalized) return;
+    finalized = true;
     if (activeJob && activeJob.process === child) activeJob = null;
-    if (wasCanceled) {
+    send("job:update", { kind: "download", status: "error", error: String(message).slice(0, 1200) });
+  };
+
+  child.once("error", (error) => {
+    finishDownloadError("Tidak dapat menjalankan yt-dlp: " + error.message);
+  });
+
+  child.once("close", (code) => {
+    if (finalized) return;
+    finalized = true;
+    const job = activeJob && activeJob.process === child ? activeJob : null;
+    if (job) activeJob = null;
+
+    if (job && job.canceled) {
       send("job:update", { kind: "download", status: "canceled" });
       return;
     }
+
     if (code === 0) {
       if (lastPath && fs.existsSync(lastPath)) {
-        allowedMediaPaths.add(path.resolve(lastPath));
-        completedOutputPaths.add(path.resolve(lastPath));
+        const resolved = path.resolve(lastPath);
+        allowedMediaPaths.add(resolved);
+        completedOutputPaths.add(resolved);
+        logJob("Unduhan selesai dan file ditemukan: " + path.basename(lastPath));
+      } else {
+        logJob("yt-dlp selesai, tetapi tidak melaporkan lokasi file output yang dapat diverifikasi.", "warning");
       }
-      logJob("Download finished." + (lastPath ? " Saved: " + lastPath : ""));
-      send("job:update", { kind: "download", status: "complete", percent: 100, outputPath: lastPath || "" });
-    } else {
-      send("job:update", { kind: "download", status: "error", error: "yt-dlp exited with code " + code });
+      send("job:update", {
+        kind: "download", status: "complete", percent: 100,
+        outputPath: lastPath && fs.existsSync(lastPath) ? lastPath : ""
+      });
+      return;
     }
+
+    const detail = lastErrorLine ? " · " + lastErrorLine : "";
+    const message = "yt-dlp berhenti dengan kode " + code + detail;
+    logJob(message, "error");
+    send("job:update", { kind: "download", status: "error", error: message });
   });
+
   return { started: true };
 }
-
 function registerHandlers() {
   ipcMain.handle("app:info", () => getAppInfo());
   ipcMain.handle("media:import", async () => {
