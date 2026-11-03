@@ -162,7 +162,7 @@
     $("#durationSeconds").value = Math.min(30, Math.max(0.1, item.durationSeconds || 15)).toFixed(1);
     $("#transcribeSource").textContent = item.name;
     if (item.width && item.height) {
-      video.src = window.klipo.mediaUrl(item.path);
+      video.src = item.previewUrl;
       video.hidden = false;
       $("#previewEmpty").hidden = true;
       video.load();
