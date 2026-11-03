@@ -595,7 +595,7 @@ async function runInstalledSmokeTest() {
       throw new Error("Packaged FFmpeg render verification failed: " + JSON.stringify(rendered));
     }
 
-    console.log("KLIPO_INSTALLED_SMOKE_RESULT=" + JSON.stringify({
+    const smokeResult = {
       status: "passed",
       ui,
       ffmpegAvailable: info.ffmpegAvailable,
@@ -605,7 +605,11 @@ async function runInstalledSmokeTest() {
       height: rendered.height,
       hasAudio: rendered.hasAudio,
       outputSizeBytes: rendered.sizeBytes
-    }));
+    };
+    if (process.env.KLIPO_SMOKE_RESULT_PATH) {
+      await fs.promises.writeFile(process.env.KLIPO_SMOKE_RESULT_PATH, JSON.stringify(smokeResult, null, 2), "utf8");
+    }
+    console.log("KLIPO_INSTALLED_SMOKE_RESULT=" + JSON.stringify(smokeResult));
   } finally {
     if (smokeWindow && !smokeWindow.isDestroyed()) smokeWindow.destroy();
     await fs.promises.rm(directory, { recursive: true, force: true }).catch(() => {});
